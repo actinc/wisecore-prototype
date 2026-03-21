@@ -145,11 +145,11 @@ const compNIST=[
 
 // ── Updates Detail ──
 const updDevices=[
-  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",dept:"業務部門",os:"Win10 21H2",lastUpd:"2026/01/05",overdue:48,pending:8,critical:3,kbs:"KB5034763, KB5034441, KB5034204",risk:"高"},
-  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",dept:"財務部門",os:"Win10 22H2",lastUpd:"2026/01/18",overdue:35,pending:5,critical:2,kbs:"KB5034441, KB5034204",risk:"高"},
-  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",dept:"HR部門",os:"Win11 23H2",lastUpd:"2026/02/01",overdue:21,pending:3,critical:1,kbs:"KB5034763",risk:"中"},
-  {name:"LAPTOP-DEV-22",ip:"192.168.3.22",user:"林志偉",dept:"研發部門",os:"Win11 23H2",lastUpd:"2026/02/10",overdue:12,pending:2,critical:0,kbs:"—",risk:"低"},
-  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",dept:"IT部門",os:"Win11 24H2",lastUpd:"2026/02/20",overdue:2,pending:1,critical:0,kbs:"—",risk:"低"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",dept:"業務部門",os:"Win10 21H2",lastUpd:"2026/01/05",overdue:48,kbs:[{kb:"KB5034763",sev:"Critical"},{kb:"KB5034441",sev:"Critical"},{kb:"KB5034204",sev:"Critical"},{kb:"KB5035849",sev:"Important"},{kb:"KB5034275",sev:"Important"},{kb:"KB5034128",sev:"Important"},{kb:"KB5033918",sev:"Moderate"},{kb:"KB5033372",sev:"Moderate"}],risk:"高"},
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",dept:"財務部門",os:"Win10 22H2",lastUpd:"2026/01/18",overdue:35,kbs:[{kb:"KB5034441",sev:"Critical"},{kb:"KB5034204",sev:"Critical"},{kb:"KB5035849",sev:"Important"},{kb:"KB5034275",sev:"Important"},{kb:"KB5033918",sev:"Moderate"}],risk:"高"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",dept:"HR部門",os:"Win11 23H2",lastUpd:"2026/02/01",overdue:21,kbs:[{kb:"KB5034763",sev:"Critical"},{kb:"KB5035849",sev:"Important"},{kb:"KB5034275",sev:"Moderate"}],risk:"中"},
+  {name:"LAPTOP-DEV-22",ip:"192.168.3.22",user:"林志偉",dept:"研發部門",os:"Win11 23H2",lastUpd:"2026/02/10",overdue:12,kbs:[{kb:"KB5035849",sev:"Important"},{kb:"KB5033918",sev:"Moderate"}],risk:"低"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",dept:"IT部門",os:"Win11 24H2",lastUpd:"2026/02/20",overdue:2,kbs:[{kb:"KB5035849",sev:"Low"}],risk:"低"},
 ];
 
 // ── Hardware Detail ──
@@ -350,8 +350,8 @@ return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
       {compNIST.map((c,i)=>{const pct=Math.round(c.ok/c.total*100);const col=pct>=95?C.green:pct>=80?C.orange:C.red;return <TR key={i}><TD style={{fontWeight:600,fontFamily:"monospace",fontSize:12,color:C.textSec}}>{c.nist}</TD><TD style={{fontWeight:500}}>{c.name}</TD><TD style={{fontSize:12,color:C.textSec}}>{c.family}</TD><TD style={{fontSize:12}}>{c.check}</TD><TD><div style={{display:"flex",alignItems:"center",gap:6,minWidth:100}}><Bar value={pct} color={col} h={6}/><span style={{fontSize:12,fontWeight:600,color:col}}>{pct}%</span></div><div style={{fontSize:10,color:C.textThi}}>{c.ok}/{c.total}</div></TD><TD><RiskBadge level={c.risk}/></TD></TR>})}
     </tbody></table>}
     {/* Updates */}
-    {d.id==="updates"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP 位址</TH><TH>使用者</TH><TH>部門</TH><TH>作業系統</TH><TH>最後更新</TH><TH>逾期天數</TH><TH>待裝</TH><TH>重大</TH><TH>缺失 KB</TH><TH>風險</TH></tr></thead><tbody>
-      {updDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dept}</TD><TD style={{fontSize:12}}>{r.os}</TD><TD style={{fontSize:12}}>{r.lastUpd}</TD><TD style={{color:r.overdue>30?C.red:r.overdue>14?C.orange:C.text,fontWeight:600}}>{r.overdue} 天</TD><TD style={{textAlign:"center"}}>{r.pending}</TD><TD style={{textAlign:"center",color:r.critical>0?C.red:C.textThi,fontWeight:r.critical>0?700:400}}>{r.critical}</TD><TD style={{fontSize:11,color:C.textSec,fontFamily:"monospace",maxWidth:200}}>{r.kbs}</TD><TD><RiskBadge level={r.risk}/></TD></TR>)}
+    {d.id==="updates"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>使用者</TH><TH>部門</TH><TH>作業系統</TH><TH>最後更新</TH><TH>逾期天數</TH><TH>缺失更新</TH><TH>風險</TH></tr></thead><tbody>
+      {updDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dept}</TD><TD style={{fontSize:12}}>{r.os}</TD><TD style={{fontSize:12}}>{r.lastUpd}</TD><TD style={{color:r.overdue>30?C.red:r.overdue>14?C.orange:C.text,fontWeight:600}}>{r.overdue} 天</TD><TD style={{maxWidth:360}}><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{r.kbs.map((k,j)=>{const sevC=k.sev==="Critical"?{bg:"#FEE2E2",text:"#991B1B"}:k.sev==="Important"?{bg:"#FEF3C7",text:"#92400E"}:k.sev==="Moderate"?{bg:"#E0E7FF",text:"#3730A3"}:{bg:"#F3F4F6",text:"#6B7280"};return <span key={j} style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:11,padding:"2px 6px",borderRadius:4,background:sevC.bg,color:sevC.text,fontFamily:"monospace",whiteSpace:"nowrap"}}>{k.kb}<span style={{fontSize:10,opacity:0.8}}>({k.sev==="Critical"?"重大":k.sev==="Important"?"重要":k.sev==="Moderate"?"中度":"低度"})</span></span>})}</div></TD><TD><RiskBadge level={r.risk}/></TD></TR>)}
     </tbody></table>}
     {/* Hardware - sub tabs */}
     {d.id==="hardware"&&hwTab==="storage"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>使用者</TH><TH>磁碟用量</TH><TH>S.M.A.R.T.</TH><TH>壞軌數</TH><TH>I/O 錯誤</TH><TH>完整性錯誤</TH><TH>使用時數</TH><TH>風險</TH></tr></thead><tbody>
