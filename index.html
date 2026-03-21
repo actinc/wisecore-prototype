@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WiseCore IT 健檢 Prototype v3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;font-size:14px;color:#333;background:#F4F4F4}
+button{font-family:inherit;cursor:pointer}select,input,textarea{font-family:inherit;outline:none}
+table{border-spacing:0}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo}=React;
+const C={primary:"#255E80",primaryLight:"#E8F0F5",bg:"#F4F4F4",white:"#FFF",border:"#DCDCDC",borderLight:"#ECECEC",text:"#333",textSec:"#757575",textThi:"#9E9E9E",textLink:"#255E80",red:"#E53935",redBg:"#FFEBEE",redBorder:"#EF9A9A",orange:"#EF6C00",orangeBg:"#FFF3E0",orangeBorder:"#FFCC80",green:"#2E7D32",greenBg:"#E8F5E9",greenBorder:"#A5D6A7",blue:"#1565C0",blueBg:"#E3F2FD",blueBorder:"#90CAF9",sideActive:"#E8F0F5"};
+
+// ── UI Components ──
+const Badge=({type,text})=>{const m={success:{bg:C.greenBg,c:C.green,b:C.greenBorder},warn:{bg:C.orangeBg,c:C.orange,b:C.orangeBorder},danger:{bg:C.redBg,c:C.red,b:C.redBorder},info:{bg:C.blueBg,c:C.blue,b:C.blueBorder},gray:{bg:"#F5F5F5",c:C.textSec,b:C.border}};const s=m[type]||m.gray;return <span style={{background:s.bg,color:s.c,border:`1px solid ${s.b}`,padding:"2px 10px",borderRadius:4,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{text}</span>};
+const RiskBadge=({level})=><Badge type={{高:"danger",中:"warn",低:"info"}[level]} text={level}/>;
+const Bar=({value,color,h=6})=><div style={{background:"#E0E0E0",borderRadius:99,height:h,width:"100%",overflow:"hidden"}}><div style={{width:`${Math.min(value,100)}%`,height:"100%",background:color,borderRadius:99,transition:"width 0.6s"}}/></div>;
+const Score=({score,size=130,sw=10})=>{const r=(size-sw)/2,ci=2*Math.PI*r,off=ci-(score/100)*ci;const col=score>=90?C.green:score>=70?C.orange:C.red;return <svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E0E0E0" strokeWidth={sw}/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={ci} strokeDashoffset={off} strokeLinecap="round" style={{transition:"stroke-dashoffset 0.8s"}}/><text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central" fill={C.text} fontSize={size*0.26} fontWeight={700} style={{transform:"rotate(90deg)",transformOrigin:"center"}}>{score}%</text></svg>};
+const Donut=({data,size=110})=>{const total=data.reduce((a,b)=>a+b.value,0);let acc=0;const r=38,ci=2*Math.PI*r;return <svg width={size} height={size} viewBox="0 0 110 110">{data.map((d,i)=>{const p=d.value/total,dl=p*ci,g=ci-dl,so=-(acc*ci)+ci*0.25;acc+=p;return <circle key={i} cx={55} cy={55} r={r} fill="none" stroke={d.color} strokeWidth={14} strokeDasharray={`${dl} ${g}`} strokeDashoffset={so}/>})}<text x={55} y={51} textAnchor="middle" fill={C.text} fontSize={17} fontWeight={700}>{total}</text><text x={55} y={66} textAnchor="middle" fill={C.textSec} fontSize={9}>台裝置</text></svg>};
+const Btn=({children,primary,onClick,disabled,outline,small,danger})=><button onClick={onClick} disabled={disabled} style={{display:"inline-flex",alignItems:"center",gap:6,padding:small?"5px 14px":"8px 18px",borderRadius:6,fontSize:small?12:13,fontWeight:500,border:primary||danger?"none":`1px solid ${outline?C.primary:C.border}`,background:danger?C.red:primary?C.primary:C.white,color:primary||danger?"#fff":outline?C.primary:C.text,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1}}>{children}</button>;
+const TH=({children,w})=><th style={{padding:"10px 12px",textAlign:"left",fontWeight:600,color:C.textSec,fontSize:11,borderBottom:`1px solid ${C.border}`,background:"#FAFAFA",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:1,width:w}}>{children}</th>;
+const TR=({children,onClick})=>{const[h,setH]=useState(false);return <tr onClick={onClick} style={{borderTop:`1px solid ${C.borderLight}`,cursor:onClick?"pointer":"default",background:h?"#FAFAFA":C.white}} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>{children}</tr>};
+const TD=({children,style:s,link})=><td style={{padding:"9px 12px",fontSize:13,color:link?C.textLink:undefined,fontWeight:link?500:undefined,...s}}>{children}</td>;
+const Modal=({children,onClose,width=520})=><div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:12,width,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",animation:"fadeIn 0.2s ease"}}>{children}</div></div>;
+const KebabMenu=({items})=>{const[open,setOpen]=useState(false);return <div style={{position:"relative",display:"inline-block"}}><div onClick={e=>{e.stopPropagation();setOpen(!open)}} style={{width:32,height:32,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:open?"#F0F0F0":"transparent"}} onMouseEnter={e=>{if(!open)e.currentTarget.style.background="#F5F5F5"}} onMouseLeave={e=>{if(!open)e.currentTarget.style.background="transparent"}}><svg width={18} height={18} viewBox="0 0 24 24" fill={C.textSec}><circle cx={12} cy={5} r={2}/><circle cx={12} cy={12} r={2}/><circle cx={12} cy={19} r={2}/></svg></div>{open&&<><div style={{position:"fixed",inset:0,zIndex:50}} onClick={()=>setOpen(false)}/><div style={{position:"absolute",right:0,top:"100%",marginTop:4,background:C.white,borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",border:`1px solid ${C.borderLight}`,minWidth:140,zIndex:51,overflow:"hidden"}}>{items.map((it,i)=><div key={i} onClick={e=>{e.stopPropagation();setOpen(false);it.onClick&&it.onClick()}} style={{padding:"10px 16px",fontSize:13,color:it.danger?C.red:C.text,cursor:"pointer",borderTop:i>0?`1px solid ${C.borderLight}`:"none"}} onMouseEnter={e=>e.currentTarget.style.background="#F5F5F5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{it.label}</div>)}</div></>}</div>};
+const Toggle=({on,onToggle})=><div onClick={e=>{e.stopPropagation();onToggle&&onToggle()}} style={{width:34,height:18,borderRadius:99,background:on?C.primary:"#D1D5DB",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:14,height:14,borderRadius:99,background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left 0.2s",boxShadow:"0 1px 2px rgba(0,0,0,0.15)"}}/></div>;
+const InfoTip=({text})=>{const ref=React.useRef(null);const[show,setShow]=useState(false);const[pos,setPos]=useState({x:0,y:0});const handleEnter=()=>{if(ref.current){const r=ref.current.getBoundingClientRect();setPos({x:r.left+r.width/2,y:r.top})}setShow(true)};return <span ref={ref} style={{display:"inline-flex",alignItems:"center",marginLeft:4}} onMouseEnter={handleEnter} onMouseLeave={()=>setShow(false)}><svg width={13} height={13} viewBox="0 0 24 24" fill={C.textThi} style={{cursor:"pointer",flexShrink:0}}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>{show&&ReactDOM.createPortal(<div style={{position:"fixed",left:Math.min(Math.max(10,pos.x-140),window.innerWidth-290),top:pos.y+24,zIndex:9999,background:"#1F2937",color:"#E5E7EB",borderRadius:8,padding:"10px 14px",fontSize:12,lineHeight:1.6,width:280,boxShadow:"0 4px 20px rgba(0,0,0,0.25)",whiteSpace:"normal",textAlign:"left",pointerEvents:"none"}}><div style={{position:"absolute",top:-6,left:Math.max(12,Math.min(pos.x-(Math.min(Math.max(10,pos.x-140),window.innerWidth-290)),268)),width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1F2937"}}/>{text}</div>,document.body)}</span>};
+
+// ── Sidebar ──
+const sideItems=[{id:"dash",l:"儀表板"},{id:"dev",l:"電腦裝置管理",ch:["電腦裝置清單","逾期稽核清單","電腦操作記錄","電腦使用統計"]},{id:"soft",l:"軟體安全管理",ch:["軟體資產清單","軟體變更資訊","Windows Patch 更新","軟體使用統計"]},{id:"net",l:"網路安全管理"},{id:"evt",l:"事件管理"},{id:"health",l:"IT 健檢"},{id:"sec",l:"安全性狀態詳細資訊"},{id:"noti",l:"通知記錄管理"},{id:"anomaly",l:"異常行為監控"},{id:"agent",l:"Agent 功能設定"},{id:"asset",l:"資產清單報告"}];
+const SideIcon=({id,color})=>{const d={dash:"M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",dev:"M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z",soft:"M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z",net:"M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z",evt:"M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z",health:"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z",sec:"M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z",noti:"M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z",anomaly:"M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z",agent:"M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z",asset:"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"};return <svg width={18} height={18} viewBox="0 0 24 24" fill={color}><path d={d[id]||d.dash}/></svg>};
+const Sidebar=({exp,setExp})=><div style={{width:220,minHeight:"100vh",background:C.white,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}><div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:8,borderBottom:`1px solid ${C.border}`}}><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill={C.primary}/><path d="M8 16c0-4.4 3.6-8 8-8s8 3.6 8 8-3.6 8-8 8" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none"/><circle cx="16" cy="16" r="3" fill="#fff"/></svg><span style={{fontWeight:700,fontSize:16,color:C.primary}}>WiseCore</span></div><div style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 12px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13,color:C.primary,fontWeight:500}}>wisecore <span style={{fontSize:10}}>▼</span></div></div><div style={{padding:"6px 0",flex:1}}>{sideItems.map(it=>{const isH=it.id==="health",isE=exp===it.id;return <div key={it.id}><div onClick={()=>it.ch?setExp(isE?null:it.id):null} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",cursor:"pointer",fontSize:13,color:isH?C.primary:C.text,fontWeight:isH?600:400,background:isH?C.sideActive:"transparent",borderLeft:isH?`3px solid ${C.primary}`:"3px solid transparent"}}><SideIcon id={it.id} color={isH?C.primary:C.textSec}/><span style={{flex:1}}>{it.l}</span>{it.ch&&<span style={{fontSize:10,color:C.textThi}}>{isE?"▲":"▼"}</span>}</div>{it.ch&&isE&&<div style={{paddingLeft:44}}>{it.ch.map(c=><div key={c} style={{padding:"7px 12px",fontSize:12,color:C.textSec,cursor:"pointer"}}>{c}</div>)}</div>}</div>})}</div></div>;
+const TopBar=()=><div style={{height:50,background:C.white,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"0 20px",gap:16}}><div style={{position:"relative",cursor:"pointer"}}><svg width={22} height={22} viewBox="0 0 24 24" fill={C.textSec}><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg><span style={{position:"absolute",top:-5,right:-7,background:C.red,color:"#fff",fontSize:9,fontWeight:700,borderRadius:99,padding:"1px 5px"}}>11</span></div><svg width={22} height={22} viewBox="0 0 24 24" fill={C.textSec}><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1112 8.4a3.6 3.6 0 010 7.2z"/></svg><div style={{width:32,height:32,borderRadius:99,border:`2px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}><svg width={18} height={18} viewBox="0 0 24 24" fill={C.textSec}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div>;
+const PageHeader=()=><div style={{padding:"20px 24px 0",display:"flex",alignItems:"center",gap:10}}><svg width={26} height={26} viewBox="0 0 24 24" fill={C.primary}><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg><div><div style={{fontSize:18,fontWeight:700}}>IT 健檢</div><div style={{fontSize:12,color:C.textThi}}>最近健檢時間：2026/02/22 23:03</div></div></div>;
+const TabBar=({tab,setTab})=><div style={{display:"flex",gap:0,padding:"12px 24px 0",borderBottom:`1px solid ${C.border}`}}>{[{id:"overview",l:"健檢總覽"},{id:"history",l:"健檢記錄"},{id:"rules",l:"規則設定"},{id:"notify",l:"通知設定"}].map(t=><div key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 20px",fontSize:13,cursor:"pointer",fontWeight:tab===t.id?600:400,color:tab===t.id?C.primary:C.textSec,borderBottom:tab===t.id?`2px solid ${C.primary}`:"2px solid transparent"}}>{t.l}</div>)}</div>;
+
+// ── Data ──
+const dims=[
+  {id:"security",name:"安全性狀態",status:"success",statusText:"安全",desc:"所有裝置防毒軟體運作正常",metric:"防護率",value:98,color:C.green,iconBg:C.greenBg,iconColor:C.green,iconPath:"M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"},
+  {id:"compliance",name:"政策合規",status:"warn",statusText:"需要關注",desc:"5 台裝置逾期未改善",metric:"合規率",value:67,color:C.orange,iconBg:C.orangeBg,iconColor:C.orange,iconPath:"M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z"},
+  {id:"updates",name:"系統更新",status:"danger",statusText:"缺少關鍵更新",desc:"120 台裝置需要更新",metric:"更新率",value:65,color:C.red,iconBg:C.redBg,iconColor:C.red,iconPath:"M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.88 6.88 0 000 9.79c2.73 2.71 7.15 2.71 9.88 0A6.98 6.98 0 0019 12.1h2a9 9 0 01-2.82 6.86 9.5 9.5 0 01-13.64-13.73c3.76-3.8 9.86-3.82 13.64 0l2.82-2.82V10.12z"},
+  {id:"hardware",name:"硬體健康",status:"success",statusText:"狀況良好",desc:"所有硬體資源運作正常",metric:"健康度",value:95,color:C.green,iconBg:C.greenBg,iconColor:C.green,iconPath:"M20 18c1.1 0 2-.9 2-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2H0v2h24v-2h-4zM4 6h16v10H4V6z"}
+];
+
+// Device data generators
+const LN=["王","李","張","陳","林","黃","吳","劉","蔡","楊","許","鄭","謝","郭","洪","邱","曾","廖","賴","周"];
+const FN=["小明","美麗","大偉","志偉","宗翰","美玲","小華","建宏","淑芬","家豪","雅婷","俊傑","怡君","明哲","佳蓉","柏翰","詩涵","冠宇","雅琪","承翰"];
+const PFX=["DESKTOP","LAPTOP","PC","WS","NB"];
+const DPT=["IT","HR","FIN","SALES","MKT","RD","LEGAL","OPS","CS","ADMIN","QA","PM","ENG","ACCT","SCM"];
+const genIP=i=>`192.168.${1+Math.floor(i/254)}.${(i%254)+1}`;
+const genName=i=>`${PFX[i%5]}-${DPT[i%15]}-${String((i%99)+1).padStart(2,'0')}`;
+const genUser=i=>`${LN[i%20]}${FN[i%20]}`;
+const genDept=i=>["IT部門","HR部門","財務部門","業務部門","行銷部門","研發部門","法務部門","營運部門","客服部門","品管部門","專案管理","工程部門","管理部門","採購部門","稽核部門"][i%15];
+
+const issueMap={
+  security:["防毒軟體未安裝","防毒即時防護未啟用","防火牆未全部啟用","系統磁碟未加密","RDP 無 NLA","Guest 帳號未停用","病毒定義超過 7 天","防毒超過 14 天未掃描"],
+  compliance:["密碼長度不足 8 碼","密碼複雜度未啟用","偵測到未授權軟體 (TeamViewer)","帳戶鎖定閾值為 0","缺少必要軟體 (CrowdStrike)","密碼超過 180 天未更換","稽核日誌未啟用","軟體版本過舊 (Chrome 108)"],
+  updates:["逾期 48 天、缺 KB5034763 等 3 個重大更新","逾期 35 天、缺 KB5034441 等 2 個重大更新","Win10 21H2 已終止支援","逾期 31 天、1 個重大更新","自動更新未啟用、5 個更新待裝"],
+  hardware:["磁碟 93% (238/256GB)","記憶體峰值 95% (14:30)","電池健康 38%","S.M.A.R.T. 警告","裝置 7.1 年","磁碟 88% (225/256GB)","CPU 峰值 98% (14:32)"]
+};
+function genDevices(n,pool){const r=[];for(let i=0;i<n;i++){const rr=Math.random(),risk=rr<.25?"高":rr<.65?"中":"低";const cnt=risk==="高"?1+Math.floor(Math.random()*3):risk==="中"?1+Math.floor(Math.random()*2):1;const issues=[];for(let j=0;j<cnt;j++)issues.push(pool[(i*7+j)%pool.length]);r.push({name:genName(i),ip:genIP(i),user:genUser(i),login:"2026/02/22 "+String(8+i%10).padStart(2,'0')+":"+String(i%60).padStart(2,'0'),risk,issues:issues.join("、")})}return r}
+const affected={security:genDevices(10,issueMap.security),compliance:genDevices(165,issueMap.compliance),updates:genDevices(175,issueMap.updates),hardware:genDevices(25,issueMap.hardware)};
+
+// ── Device List Modal (large, searchable) ──
+const DeviceListModal=({title,devices,onClose})=>{const[s,setS]=useState("");const[rf,setRf]=useState("全部");
+const f=useMemo(()=>devices.filter(d=>(!s||d.name.toLowerCase().includes(s.toLowerCase())||d.user.includes(s)||d.issues.includes(s)||d.ip.includes(s))&&(rf==="全部"||d.risk===rf)),[devices,s,rf]);
+const rc={高:devices.filter(d=>d.risk==="高").length,中:devices.filter(d=>d.risk==="中").length,低:devices.filter(d=>d.risk==="低").length};
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:12,width:1040,height:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",animation:"fadeIn 0.2s ease"}}>
+  <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontSize:17,fontWeight:700}}>{title}</div><div style={{fontSize:12,color:C.textSec,marginTop:4,display:"flex",gap:14}}><span>共 <b>{devices.length}</b> 台</span><span style={{color:C.red}}>高 {rc["高"]}</span><span style={{color:C.orange}}>中 {rc["中"]}</span><span style={{color:C.blue}}>低 {rc["低"]}</span></div></div><span onClick={onClose} style={{cursor:"pointer",fontSize:20,color:C.textThi,padding:"4px 8px",borderRadius:6}}>✕</span></div>
+    <div style={{display:"flex",gap:8,marginTop:12}}><input value={s} onChange={e=>setS(e.target.value)} placeholder="搜尋裝置名稱、IP、使用者、問題..." style={{flex:1,padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,background:"#FAFAFA"}}/><select value={rf} onChange={e=>setRf(e.target.value)} style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}><option>全部</option><option>高</option><option>中</option><option>低</option></select></div>
+  </div>
+  <div style={{padding:"6px 24px",fontSize:12,color:C.textSec,background:"#FAFAFA",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0}}>顯示 {f.length} / {devices.length}</div>
+  <div style={{flex:1,overflowY:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP 位址</TH><TH>使用者</TH><TH>最後登入</TH><TH>風險</TH><TH>問題摘要</TH></tr></thead>
+    <tbody>{f.length===0?<tr><td colSpan={6} style={{padding:40,textAlign:"center",color:C.textThi}}>無符合條件的裝置</td></tr>:f.map((d,i)=><TR key={i}><TD link>{d.name}</TD><TD style={{fontFamily:"monospace",fontSize:12,color:C.textSec}}>{d.ip}</TD><TD style={{color:C.textSec}}>{d.user}</TD><TD style={{color:C.textThi,fontSize:12}}>{d.login}</TD><TD><RiskBadge level={d.risk}/></TD><TD style={{color:C.textSec,fontSize:12,maxWidth:320}}>{d.issues}</TD></TR>)}</tbody></table></div>
+  <div style={{padding:"10px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",flexShrink:0,background:"#FAFAFA"}}><span style={{fontSize:12,color:C.textSec}}>{f.length} 筆</span><Btn outline small onClick={onClose}>關閉</Btn></div>
+</div></div>};
+
+const ClickableStat=({label,count,countUnit,sub1,sub2,variant,devices,modalTitle})=>{const[show,setShow]=useState(false);const isR=variant==="red";return <><div onClick={()=>setShow(true)} style={{background:isR?C.redBg:C.white,borderRadius:8,border:`1px solid ${isR?C.redBorder:C.greenBorder}`,padding:18,cursor:"pointer",transition:"box-shadow 0.2s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.08)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}><div style={{color:isR?C.red:C.green,fontSize:12,fontWeight:600}}>{label}</div><div style={{fontSize:30,fontWeight:700,marginTop:2}}>{count} <span style={{fontSize:14,fontWeight:500}}>{countUnit||"台"}</span></div><div style={{color:isR?C.red:C.green,fontSize:12,marginTop:4}}>{sub1}</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><span style={{color:C.textThi,fontSize:11}}>{sub2}</span><span style={{color:C.primary,fontSize:12,fontWeight:500,textDecoration:"underline"}}>查看裝置清單</span></div></div>{show&&<DeviceListModal title={modalTitle} devices={devices} onClose={()=>setShow(false)}/>}</>};
+
+// ── Security Detail ──
+const secDevices=[
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",dept:"IT部門",login:"2026/02/22 08:15",av:"Windows Defender",avVer:"4.18.240",avOk:true,fw:true,bl:true,rdp:false,scan:"2026/02/20",risk:"無"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",dept:"業務部門",login:"2026/02/22 09:03",av:"未安裝",avVer:"—",avOk:false,fw:true,bl:false,rdp:true,scan:"—",risk:"高"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",dept:"HR部門",login:"2026/02/22 08:45",av:"CrowdStrike",avVer:"7.08",avOk:true,fw:false,bl:true,rdp:false,scan:"2026/02/21",risk:"高"},
+  {name:"PC-SALES-12",ip:"192.168.2.15",user:"張大偉",dept:"業務部門",login:"2026/02/21 17:30",av:"Defender",avVer:"4.18.240",avOk:true,fw:true,bl:false,rdp:false,scan:"2026/02/19",risk:"中"},
+  {name:"LAPTOP-FIN07",ip:"192.168.1.88",user:"陳小華",dept:"財務部門",login:"2026/02/22 08:20",av:"Defender",avVer:"4.18.240",avOk:true,fw:true,bl:true,rdp:false,scan:"2026/02/22",risk:"無"},
+];
+
+// ── Compliance (ISO 27001) ──
+const compControls=[
+  {iso:"A.5.1",name:"資訊安全政策",rule:"POL-001",check:"密碼最小長度 >= 8",ok:485,total:500,risk:"高"},
+  {iso:"A.8.5",name:"安全鑑別",rule:"POL-003",check:"密碼複雜度已啟用",ok:478,total:500,risk:"中"},
+  {iso:"A.8.5",name:"安全鑑別",rule:"POL-004",check:"帳戶鎖定閾值 > 0",ok:470,total:500,risk:"中"},
+  {iso:"A.8.19",name:"軟體安裝管理",rule:"POL-005",check:"無未授權軟體",ok:455,total:500,risk:"高"},
+  {iso:"A.8.7",name:"惡意程式防護",rule:"SEC-001",check:"防毒已安裝且啟用",ok:498,total:500,risk:"高"},
+  {iso:"A.8.8",name:"技術脆弱性管理",rule:"UPD-001",check:"更新未超過 30 天",ok:380,total:500,risk:"高"},
+  {iso:"A.8.9",name:"組態管理",rule:"SEC-004",check:"防火牆已啟用",ok:499,total:500,risk:"高"},
+  {iso:"A.8.24",name:"使用密碼學",rule:"SEC-005",check:"BitLocker 已啟用",ok:480,total:500,risk:"中"},
+  {iso:"A.8.15",name:"日誌記錄",rule:"POL-007",check:"稽核日誌已啟用",ok:465,total:500,risk:"低"},
+];
+
+// ── Compliance (CIS Benchmark) ──
+const compCIS=[
+  {cis:"1.1.1",name:"密碼歷程記錄",category:"帳號政策",check:"密碼歷程 >= 24 組",ok:490,total:500,risk:"中"},
+  {cis:"1.1.2",name:"密碼最長使用期限",category:"帳號政策",check:"密碼最長使用期限 <= 365 天",ok:475,total:500,risk:"中"},
+  {cis:"1.1.4",name:"密碼最小長度",category:"帳號政策",check:"密碼最小長度 >= 14 碼",ok:460,total:500,risk:"高"},
+  {cis:"1.2.1",name:"帳戶鎖定持續時間",category:"帳號政策",check:"鎖定持續時間 >= 15 分鐘",ok:470,total:500,risk:"中"},
+  {cis:"1.2.2",name:"帳戶鎖定閾值",category:"帳號政策",check:"鎖定閾值 <= 5 次",ok:468,total:500,risk:"高"},
+  {cis:"2.3.7.3",name:"閒置鎖定逾時",category:"本機政策",check:"閒置逾時 <= 15 分鐘",ok:455,total:500,risk:"中"},
+  {cis:"8.1",name:"惡意軟體防禦",category:"端點防護",check:"防毒軟體已安裝且啟用",ok:498,total:500,risk:"高"},
+  {cis:"9.1.1",name:"網域防火牆設定檔",category:"防火牆",check:"網域防火牆已啟用",ok:499,total:500,risk:"高"},
+  {cis:"9.2.1",name:"私人防火牆設定檔",category:"防火牆",check:"私人防火牆已啟用",ok:499,total:500,risk:"高"},
+  {cis:"9.3.1",name:"公用防火牆設定檔",category:"防火牆",check:"公用防火牆已啟用",ok:497,total:500,risk:"高"},
+  {cis:"18.9.97.1",name:"自動登入管理",category:"系統安全",check:"自動登入已停用",ok:492,total:500,risk:"中"},
+  {cis:"18.10.8",name:"可攜式儲存限制",category:"裝置管理",check:"USB 儲存裝置已限制",ok:480,total:500,risk:"低"},
+];
+
+// ── Compliance (NIST 800-53) ──
+const compNIST=[
+  {nist:"AC-2",name:"帳號管理",family:"存取控制",check:"帳號建立與停用流程已啟用",ok:488,total:500,risk:"中"},
+  {nist:"AC-6",name:"最小權限",family:"存取控制",check:"本機管理員帳號數量 <= 2",ok:472,total:500,risk:"中"},
+  {nist:"AC-7",name:"登入失敗處理",family:"存取控制",check:"帳戶鎖定閾值已設定",ok:468,total:500,risk:"高"},
+  {nist:"AC-11",name:"工作階段鎖定",family:"存取控制",check:"閒置逾時自動鎖定已啟用",ok:455,total:500,risk:"中"},
+  {nist:"AC-17",name:"遠端存取控制",family:"存取控制",check:"RDP NLA 已啟用",ok:495,total:500,risk:"中"},
+  {nist:"IA-2",name:"使用者身分鑑別",family:"識別與鑑別",check:"自動登入已停用",ok:492,total:500,risk:"中"},
+  {nist:"IA-5",name:"鑑別器管理",family:"識別與鑑別",check:"密碼複雜度與長度符合要求",ok:478,total:500,risk:"高"},
+  {nist:"SC-7",name:"邊界防護",family:"系統與通訊保護",check:"主機防火牆全設定檔已啟用",ok:499,total:500,risk:"高"},
+  {nist:"SC-28",name:"靜態資訊保護",family:"系統與通訊保護",check:"BitLocker 磁碟加密已啟用",ok:480,total:500,risk:"中"},
+  {nist:"SI-2",name:"缺陷修復",family:"系統與資訊完整性",check:"系統更新未逾期 30 天",ok:380,total:500,risk:"高"},
+  {nist:"SI-3",name:"惡意程式碼防護",family:"系統與資訊完整性",check:"防毒已安裝且即時防護啟用",ok:498,total:500,risk:"高"},
+  {nist:"MP-7",name:"媒體使用限制",family:"媒體保護",check:"USB 儲存裝置已限制",ok:480,total:500,risk:"低"},
+];
+
+// ── Updates Detail ──
+const updDevices=[
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",dept:"業務部門",os:"Win10 21H2",lastUpd:"2026/01/05",overdue:48,pending:8,critical:3,kbs:"KB5034763, KB5034441, KB5034204",risk:"高"},
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",dept:"財務部門",os:"Win10 22H2",lastUpd:"2026/01/18",overdue:35,pending:5,critical:2,kbs:"KB5034441, KB5034204",risk:"高"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",dept:"HR部門",os:"Win11 23H2",lastUpd:"2026/02/01",overdue:21,pending:3,critical:1,kbs:"KB5034763",risk:"中"},
+  {name:"LAPTOP-DEV-22",ip:"192.168.3.22",user:"林志偉",dept:"研發部門",os:"Win11 23H2",lastUpd:"2026/02/10",overdue:12,pending:2,critical:0,kbs:"—",risk:"低"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",dept:"IT部門",os:"Win11 24H2",lastUpd:"2026/02/20",overdue:2,pending:1,critical:0,kbs:"—",risk:"低"},
+];
+
+// ── Hardware Detail ──
+const hwDevices=[
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",login:"02/22 08:50",disk:"93% (238/256GB)",mem:"78% (12/16GB)",cpuPk:"92% (14:30)",memPk:"88% (14:32)",bat:"—",age:6.2,smart:"正常",detected:"2026/02/01",risk:"高"},
+  {name:"LAPTOP-FIN07",ip:"192.168.1.88",user:"陳小華",login:"02/22 08:20",disk:"88% (225/256GB)",mem:"65% (10/16GB)",cpuPk:"78% (11:15)",memPk:"72% (11:15)",bat:"42%",age:4.8,smart:"正常",detected:"2026/02/10",risk:"中"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",login:"02/22 09:03",disk:"72% (184/256GB)",mem:"91% (14/16GB)",cpuPk:"95% (14:32)",memPk:"93% (14:32)",bat:"78%",age:2.1,smart:"正常",detected:"2026/02/18",risk:"中"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",login:"02/22 08:45",disk:"45% (230/512GB)",mem:"55% (8/16GB)",cpuPk:"60% (10:00)",memPk:"58% (10:00)",bat:"—",age:5.5,smart:"警告",detected:"2026/01/20",risk:"中"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",login:"02/22 08:15",disk:"32% (82/256GB)",mem:"40% (6/16GB)",cpuPk:"45% (09:00)",memPk:"42% (09:00)",bat:"—",age:1.2,smart:"正常",detected:"—",risk:"無"},
+];
+
+// ── Clickable Stat Cards (bottom row) ──
+const statCardDevices={
+  av_deploy:genDevices(10,["防毒軟體未安裝","防毒軟體已停用","防毒軟體授權過期","防毒即時防護未啟用"]),
+  bitlocker:genDevices(20,["系統磁碟 C: 未加密","資料磁碟 D: 未加密","加密暫停中","BitLocker 已停用"]),
+  av_scan:genDevices(40,["上次完整掃描 18 天前","上次完整掃描 22 天前","上次完整掃描 35 天前","從未執行完整掃描"]),
+  av_ver:genDevices(25,["Defender 4.18.230 (過舊)","CrowdStrike 6.52 (過舊)","Defender 4.18.210 (過舊)","Defender 4.18.220 (過舊)"]),
+};
+const ClickableScoreCard=({title,score,ok,total,devices,modalTitle})=>{const[show,setShow]=useState(false);
+return <><div onClick={()=>setShow(true)} style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:16,textAlign:"center",cursor:"pointer",transition:"box-shadow 0.2s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.07)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+  <div style={{fontWeight:600,fontSize:13,marginBottom:12,textAlign:"left"}}>{title}</div>
+  <Score score={score} size={80} sw={7}/>
+  <div style={{fontSize:11,color:C.textSec,marginTop:6}}>{ok}/{total} 台</div>
+</div>{show&&<DeviceListModal title={modalTitle} devices={devices} onClose={()=>setShow(false)}/>}</>};
+const StatCardRow=()=><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+  <ClickableScoreCard title="防毒部署率" score={98} ok={490} total={500} devices={statCardDevices.av_deploy} modalTitle="防毒未部署裝置 (10 台)"/>
+  <ClickableScoreCard title="BitLocker 加密率" score={96} ok={480} total={500} devices={statCardDevices.bitlocker} modalTitle="BitLocker 未加密裝置 (20 台)"/>
+  <ClickableScoreCard title="防毒近期掃描率" score={92} ok={460} total={500} devices={statCardDevices.av_scan} modalTitle="防毒未近期掃描裝置 (40 台)"/>
+  <ClickableScoreCard title="防毒最新版本率" score={95} ok={475} total={500} devices={statCardDevices.av_ver} modalTitle="防毒版本過舊裝置 (25 台)"/>
+</div>;
+
+// ── Device Selection Modal ──
+const allDeviceGroups=[{name:"全部裝置",count:500},{name:"IT 部門",count:45},{name:"HR 部門",count:32},{name:"財務部門",count:28},{name:"業務部門",count:65},{name:"行銷部門",count:40},{name:"研發部門",count:120},{name:"法務部門",count:15},{name:"營運部門",count:55},{name:"客服部門",count:38},{name:"品管部門",count:22},{name:"專案管理",count:18},{name:"工程部門",count:22}];
+const DeviceSelectModal=({onClose,onConfirm,initCount})=>{const[mode,setMode]=useState("all");const[selected,setSelected]=useState(new Set(["全部裝置"]));const total=mode==="all"?500:Array.from(selected).reduce((s,g)=>{const f=allDeviceGroups.find(x=>x.name===g);return s+(f?f.count:0)},0);
+const toggleGroup=(name)=>{const n=new Set(selected);if(n.has(name))n.delete(name);else n.add(name);setSelected(n)};
+return <Modal onClose={onClose} width={560}>
+<div style={{padding:"20px 24px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:17,fontWeight:700}}>選擇檢測對象</span><span onClick={onClose} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div></div>
+<div style={{padding:"20px 24px",overflowY:"auto",flex:1}}>
+  <div style={{display:"flex",gap:8,marginBottom:16}}>{[{id:"all",l:"全部裝置"},{id:"group",l:"依群組選擇"}].map(m=><div key={m.id} onClick={()=>{setMode(m.id);setSelected(new Set(m.id==="all"?["全部裝置"]:[]))}} style={{flex:1,padding:"10px 14px",borderRadius:8,border:`2px solid ${mode===m.id?C.primary:C.border}`,background:mode===m.id?C.primaryLight:C.white,cursor:"pointer",textAlign:"center",fontSize:13,fontWeight:600,color:mode===m.id?C.primary:C.textSec}}>{m.l}</div>)}</div>
+  {mode==="all"?<div style={{padding:20,textAlign:"center",color:C.textSec,fontSize:13}}>將掃描所有已註冊的 <b style={{color:C.text}}>500</b> 台裝置</div>
+  :<div style={{display:"flex",flexDirection:"column",gap:4}}>{allDeviceGroups.filter(g=>g.name!=="全部裝置").map(g=><div key={g.name} onClick={()=>toggleGroup(g.name)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,border:`1px solid ${selected.has(g.name)?C.primary:C.borderLight}`,background:selected.has(g.name)?C.primaryLight:C.white,cursor:"pointer"}}>
+    <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${selected.has(g.name)?C.primary:C.border}`,background:selected.has(g.name)?C.primary:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>{selected.has(g.name)&&<svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}</div>
+    <span style={{flex:1,fontSize:13,fontWeight:selected.has(g.name)?600:400}}>{g.name}</span>
+    <span style={{fontSize:12,color:C.textThi}}>{g.count} 台</span>
+  </div>)}</div>}
+  <div style={{marginTop:16,padding:"12px 16px",background:"#FAFAFA",borderRadius:8,border:`1px solid ${C.borderLight}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:C.textSec}}>已選擇裝置</span><span style={{fontSize:20,fontWeight:700,color:C.primary}}>{total} 台</span></div>
+</div>
+<div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{onConfirm(total);onClose()}}>確認選擇</Btn></div>
+</Modal>};
+
+// ── Schedule Edit Modal ──
+const ScheduleEditModal=({onClose})=>{const[enabled,setEnabled]=useState(true);const[freq,setFreq]=useState("weekly");const[time,setTime]=useState("02:00");const[weekday,setWeekday]=useState(1);const[monthDay,setMonthDay]=useState(1);const[scope,setScope]=useState("all");const[selGroups,setSelGroups]=useState(new Set());const[notifyDone,setNotifyDone]=useState(true);
+const weekdays=["日","一","二","三","四","五","六"];
+const toggleGrp=(name)=>{const n=new Set(selGroups);if(n.has(name))n.delete(name);else n.add(name);setSelGroups(n)};
+return <Modal onClose={onClose} width={520}>
+<div style={{padding:"20px 24px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:17,fontWeight:700}}>排程設定</span><span onClick={onClose} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div></div>
+<div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16,overflowY:"auto",flex:1}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:14,fontWeight:600}}>啟用排程</span><Toggle on={enabled} onToggle={()=>setEnabled(!enabled)}/></div>
+  {enabled&&<>
+  <div><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>頻率</div>
+    <div style={{display:"flex",gap:6}}>{[{id:"daily",l:"每天"},{id:"weekly",l:"每週"},{id:"monthly",l:"每月"}].map(f=><div key={f.id} onClick={()=>setFreq(f.id)} style={{flex:1,padding:"8px",borderRadius:6,border:`2px solid ${freq===f.id?C.primary:C.border}`,background:freq===f.id?C.primaryLight:C.white,textAlign:"center",fontSize:13,fontWeight:600,color:freq===f.id?C.primary:C.textSec,cursor:"pointer"}}>{f.l}</div>)}</div>
+  </div>
+  <div><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>執行時間</div>
+    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{["00:00","02:00","04:00","06:00","08:00","12:00","18:00","22:00"].map(t=><div key={t} onClick={()=>setTime(t)} style={{padding:"6px 12px",borderRadius:6,border:`1px solid ${time===t?C.primary:C.border}`,background:time===t?C.primaryLight:C.white,fontSize:12,cursor:"pointer",color:time===t?C.primary:C.textSec,fontWeight:time===t?600:400}}>{t}</div>)}</div>
+  </div>
+  {freq==="weekly"&&<div><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>星期</div>
+    <div style={{display:"flex",gap:6}}>{weekdays.map((d,i)=><div key={i} onClick={()=>setWeekday(i)} style={{width:40,height:36,borderRadius:6,border:`1px solid ${weekday===i?C.primary:C.border}`,background:weekday===i?C.primaryLight:C.white,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,cursor:"pointer",color:weekday===i?C.primary:C.textSec,fontWeight:weekday===i?600:400}}>{d}</div>)}</div>
+  </div>}
+  {freq==="monthly"&&<div><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>日期</div>
+    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[1,5,10,15,20,25,28].map(d=><div key={d} onClick={()=>setMonthDay(d)} style={{padding:"6px 12px",borderRadius:6,border:`1px solid ${monthDay===d?C.primary:C.border}`,background:monthDay===d?C.primaryLight:C.white,fontSize:12,cursor:"pointer",color:monthDay===d?C.primary:C.textSec,fontWeight:monthDay===d?600:400}}>{d} 日</div>)}</div>
+  </div>}
+  <div><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>檢測範圍</div>
+    <div style={{display:"flex",gap:6}}>{[{id:"all",l:"全部裝置"},{id:"group",l:"指定群組"}].map(s=><div key={s.id} onClick={()=>setScope(s.id)} style={{flex:1,padding:"8px",borderRadius:6,border:`2px solid ${scope===s.id?C.primary:C.border}`,background:scope===s.id?C.primaryLight:C.white,textAlign:"center",fontSize:13,fontWeight:600,color:scope===s.id?C.primary:C.textSec,cursor:"pointer"}}>{s.l}</div>)}</div>
+  </div>
+  {scope==="group"&&<div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:180,overflowY:"auto",padding:2}}>
+    {allDeviceGroups.filter(g=>g.name!=="全部裝置").map(g=><div key={g.name} onClick={()=>toggleGrp(g.name)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:6,border:`1px solid ${selGroups.has(g.name)?C.primary:C.borderLight}`,background:selGroups.has(g.name)?C.primaryLight:C.white,cursor:"pointer"}}>
+      <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${selGroups.has(g.name)?C.primary:C.border}`,background:selGroups.has(g.name)?C.primary:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>{selGroups.has(g.name)&&<svg width={10} height={10} viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}</div>
+      <span style={{flex:1,fontSize:12}}>{g.name}</span>
+      <span style={{fontSize:11,color:C.textThi}}>{g.count} 台</span>
+    </div>)}
+  </div>}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderTop:`1px solid ${C.borderLight}`}}><span style={{fontSize:13}}>完成後寄送 Email 摘要</span><Toggle on={notifyDone} onToggle={()=>setNotifyDone(!notifyDone)}/></div>
+  </>}
+  {!enabled&&<div style={{padding:20,textAlign:"center",color:C.textThi,fontSize:13}}>排程已停用，不會自動執行健檢。</div>}
+</div>
+<div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8,flexShrink:0}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={onClose}>儲存設定</Btn></div>
+</Modal>};
+
+// ── Score Tooltip ──
+const ScoreTooltip=({show})=>{if(!show)return null;return <div style={{position:"absolute",top:"100%",left:0,marginTop:8,background:"#1F2937",color:"#E5E7EB",borderRadius:10,padding:"16px 20px",fontSize:12,lineHeight:1.8,width:340,zIndex:10,boxShadow:"0 8px 24px rgba(0,0,0,0.2)"}}>
+  <div style={{fontWeight:700,fontSize:13,marginBottom:8,color:"#fff"}}>評分計算方式</div>
+  <div>整體分數 = 各維度分數 x 權重加總</div>
+  <div style={{margin:"8px 0",padding:"8px 12px",background:"rgba(255,255,255,0.08)",borderRadius:6}}>
+    <div style={{display:"flex",justifyContent:"space-between"}}><span>安全性狀態</span><span style={{color:"#93C5FD"}}>x 30%</span></div>
+    <div style={{display:"flex",justifyContent:"space-between"}}><span>政策合規</span><span style={{color:"#93C5FD"}}>x 25%</span></div>
+    <div style={{display:"flex",justifyContent:"space-between"}}><span>系統更新</span><span style={{color:"#93C5FD"}}>x 25%</span></div>
+    <div style={{display:"flex",justifyContent:"space-between"}}><span>硬體健康</span><span style={{color:"#93C5FD"}}>x 20%</span></div>
+  </div>
+  <div style={{color:"#9CA3AF"}}>各維度分數 = 100 - 觸發規則扣分（高-15 / 中-8 / 低-3），取全部裝置平均</div>
+  <div style={{width:8,height:8,background:"#1F2937",position:"absolute",top:-4,left:40,transform:"rotate(45deg)"}}/>
+</div>};
+
+// ── Overview ──
+const OverviewPage=({setDimDetail,setView,setShowExport})=>{const[scanning,setScanning]=useState(false);const[deviceCount,setDeviceCount]=useState(500);const[showDeviceSelect,setShowDeviceSelect]=useState(false);const[showSchedule,setShowSchedule]=useState(false);const[showScoreTip,setShowScoreTip]=useState(false);return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontWeight:600,fontSize:14}}>選擇檢測對象</span><div onClick={()=>setShowDeviceSelect(true)} style={{padding:"5px 14px",background:C.primaryLight,borderRadius:6,fontSize:13,color:C.primary,fontWeight:500,cursor:"pointer"}}>選擇裝置 <span style={{background:C.primary,color:"#fff",borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:700}}>{deviceCount}</span></div><span style={{color:C.green,fontSize:12}}>已選擇 {deviceCount} 台裝置</span></div><Btn primary onClick={()=>{setScanning(true);setTimeout(()=>setScanning(false),2500)}} disabled={scanning}>{scanning?"掃描中...":"開始電腦健檢"}</Btn></div>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"11px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:12,fontSize:13}}><span style={{fontWeight:600}}>排程設定</span><Badge type="success" text="已啟用"/><span style={{color:C.textSec}}>每週一 02:00 | 全部裝置 | 下次：2026/02/24</span></div><Btn small outline onClick={()=>setShowSchedule(true)}>編輯</Btn></div>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"22px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:24}}><Score score={92} size={110} sw={9}/><div><div style={{fontSize:18,fontWeight:700,display:"flex",alignItems:"center",gap:8}}>整體健康評分 <div style={{position:"relative",display:"inline-block"}} onMouseEnter={()=>setShowScoreTip(true)} onMouseLeave={()=>setShowScoreTip(false)}><svg width={16} height={16} viewBox="0 0 24 24" fill={C.textThi} style={{cursor:"pointer"}}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><ScoreTooltip show={showScoreTip}/></div></div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:5}}><Badge type="success" text="良好"/><span style={{color:C.textSec,fontSize:13}}>系統整體運作正常</span></div><div style={{color:C.textThi,fontSize:12,marginTop:5}}>已掃描 {deviceCount} 台裝置，發現 3 個需要關注的項目</div></div></div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={()=>setView("report")}>查看詳細報告</Btn><Btn outline onClick={()=>setShowExport(true)}>匯出健檢報告</Btn></div></div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>{dims.map(function(d){var badInfo=d.id==="security"?{n:10,t:"防毒/防火牆/加密異常"}:d.id==="compliance"?{n:165,t:"密碼/軟體/政策不合規"}:d.id==="updates"?{n:175,t:"系統更新逾期未安裝"}:{n:25,t:"磁碟/電池/溫度異常"};return <div key={d.id} onClick={()=>setDimDetail(d.id)} style={{background:C.white,borderRadius:8,border:`1px solid ${d.status==="success"?C.greenBorder:d.status==="warn"?C.orangeBorder:C.redBorder}`,padding:16,cursor:"pointer",transition:"box-shadow 0.2s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.07)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}><div style={{width:40,height:40,borderRadius:99,background:d.iconBg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}><svg width={22} height={22} viewBox="0 0 24 24" fill={d.iconColor}><path d={d.iconPath}/></svg></div><div style={{fontSize:14,fontWeight:700,marginBottom:4}}>{d.name}</div><div style={{marginBottom:4}}><Badge type={d.status} text={d.statusText}/></div>{d.status!=="success"&&<div style={{fontSize:11,color:d.color,fontWeight:600,marginBottom:4}}>{badInfo.n} 台異常 — {badInfo.t}</div>}<div style={{fontSize:12,color:C.textSec,marginBottom:10}}>{d.desc}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:C.textSec}}>{d.metric}</span><span style={{fontWeight:700,color:d.color}}>{d.value}%</span></div><Bar value={d.value} color={d.color}/></div>})}</div>
+  {/* Bottom stats - clickable */}
+  <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
+    <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:16}}><div style={{fontWeight:600,fontSize:13,marginBottom:12}}>作業系統分布</div><div style={{display:"flex",alignItems:"center",gap:12}}><Donut data={[{value:320,color:C.primary},{value:150,color:"#4DB6AC"},{value:30,color:"#B2DFDB"}]} size={90}/><div style={{fontSize:11,color:C.textSec,display:"flex",flexDirection:"column",gap:4}}>{[{l:"Win 11",v:320,c:C.primary},{l:"Win 10",v:150,c:"#4DB6AC"},{l:"其他",v:30,c:"#B2DFDB"}].map(x=><div key={x.l} style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,background:x.c}}/>{x.l} ({x.v})</div>)}</div></div></div>
+    <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:16}}><div style={{fontWeight:600,fontSize:13,marginBottom:12}}>裝置老化狀況</div>{[{l:"3 年內",p:60,c:C.green},{l:"3-5 年",p:28,c:C.orange},{l:"5 年以上",p:12,c:C.red}].map(r=><div key={r.l} style={{marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}><span style={{color:C.textSec}}>{r.l}</span><span style={{fontWeight:600}}>{r.p}%</span></div><Bar value={r.p} color={r.c} h={6}/></div>)}</div>
+  </div>
+  <StatCardRow/>
+  {showDeviceSelect&&<DeviceSelectModal onClose={()=>setShowDeviceSelect(false)} onConfirm={setDeviceCount} initCount={deviceCount}/>}
+  {showSchedule&&<ScheduleEditModal onClose={()=>setShowSchedule(false)}/>}
+</div>};
+
+// ── Hardware Detail (4 sub-categories) ──
+const hwStorageDevices=[
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",disk:"93% (238/256GB)",smart:"警告",badSectors:3,ioErrors:28,integrityErrors:2,hours:52800,risk:"高"},
+  {name:"LAPTOP-FIN07",ip:"192.168.1.88",user:"陳小華",disk:"88% (225/256GB)",smart:"正常",badSectors:0,ioErrors:5,integrityErrors:0,hours:38200,risk:"中"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",disk:"45% (230/512GB)",smart:"警告",badSectors:1,ioErrors:15,integrityErrors:1,hours:44100,risk:"中"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",disk:"72% (184/256GB)",smart:"正常",badSectors:0,ioErrors:2,integrityErrors:0,hours:16500,risk:"低"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",disk:"32% (82/256GB)",smart:"正常",badSectors:0,ioErrors:0,integrityErrors:0,hours:8200,risk:"無"},
+];
+const hwBatteryDevices=[
+  {name:"LAPTOP-FIN07",ip:"192.168.1.88",user:"陳小華",health:"42%",designCap:"56.0 Wh",currentCap:"23.5 Wh",cycles:680,powerLoss:8,risk:"高"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",health:"78%",designCap:"56.0 Wh",currentCap:"43.7 Wh",cycles:320,powerLoss:2,risk:"中"},
+  {name:"LAPTOP-DEV-22",ip:"192.168.3.22",user:"林志偉",health:"85%",designCap:"56.0 Wh",currentCap:"47.6 Wh",cycles:210,powerLoss:1,risk:"低"},
+  {name:"NB-MKT-05",ip:"192.168.2.55",user:"楊雅婷",health:"91%",designCap:"56.0 Wh",currentCap:"51.0 Wh",cycles:145,powerLoss:0,risk:"無"},
+  {name:"NB-PM-03",ip:"192.168.3.8",user:"許冠宇",health:"95%",designCap:"56.0 Wh",currentCap:"53.2 Wh",cycles:80,powerLoss:0,risk:"無"},
+];
+const hwStabilityDevices=[
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",bsod:3,lastBsod:"DRIVER_IRQL_NOT_LESS_OR_EQUAL",unexpShutdown:5,hwErrors:4,driverCrash:8,risk:"高"},
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",bsod:1,lastBsod:"KERNEL_DATA_INPAGE_ERROR",unexpShutdown:2,hwErrors:1,driverCrash:3,risk:"中"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",bsod:1,lastBsod:"SYSTEM_SERVICE_EXCEPTION",unexpShutdown:3,hwErrors:0,driverCrash:1,risk:"中"},
+  {name:"PC-SALES-12",ip:"192.168.2.15",user:"張大偉",bsod:0,lastBsod:"—",unexpShutdown:1,hwErrors:0,driverCrash:2,risk:"低"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",bsod:0,lastBsod:"—",unexpShutdown:0,hwErrors:0,driverCrash:0,risk:"無"},
+];
+const hwTempDevices=[
+  {name:"LAPTOP-FIN07",ip:"192.168.1.88",user:"陳小華",cpuNow:"82°C",cpuMax:"96°C",throttle:true,overheatEvents:12,risk:"高"},
+  {name:"PC-ACCT-09",ip:"192.168.2.9",user:"黃美玲",cpuNow:"75°C",cpuMax:"91°C",throttle:true,overheatEvents:6,risk:"高"},
+  {name:"DESKTOP-HR03",ip:"192.168.1.42",user:"李美麗",cpuNow:"68°C",cpuMax:"85°C",throttle:false,overheatEvents:2,risk:"中"},
+  {name:"LAPTOP-MK01",ip:"192.168.1.25",user:"王小明",cpuNow:"55°C",cpuMax:"72°C",throttle:false,overheatEvents:0,risk:"無"},
+  {name:"GTC-IIC-TEST",ip:"192.168.1.10",user:"IICadmin",cpuNow:"42°C",cpuMax:"58°C",throttle:false,overheatEvents:0,risk:"無"},
+];
+
+// ── Detail Page ──
+const DimDetailPage=({dimId,onBack})=>{const d=dims.find(x=>x.id===dimId);const[vt,setVt]=useState("device");const[hwTab,setHwTab]=useState("storage");const[compView,setCompView]=useState("iso");const rate=d.value,okN=Math.round(500*rate/100),badN=500-okN;const devs=affected[d.id]||[];const highN=devs.filter(x=>x.risk==="高").length;const showTabs=d.id==="security"||d.id==="compliance";
+const hwSubTabs=[{id:"storage",l:"儲存健康"},{id:"battery",l:"電池健康"},{id:"stability",l:"穩定性"},{id:"temp",l:"溫度"}];
+
+return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+  <div onClick={onBack} style={{display:"inline-flex",alignItems:"center",gap:4,cursor:"pointer",color:C.primary,fontSize:13,fontWeight:500,alignSelf:"flex-start"}}>← 返回總覽</div>
+  <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:13,color:C.textSec,marginTop:2}}>{d.id==="compliance"?"依據國際資安標準檢視合規狀態，提供稽核與管理報告":d.id==="security"?"即時檢視安全防護狀態、偵測結果與處理進度":`檢視${d.name}的詳細結果與影響裝置`}</div></div>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+    <ClickableStat label={d.id==="compliance"?"合規裝置數":"正常裝置數"} count={okN} sub1={`佔總數 ${rate}%`} sub2="目標: 85%" variant="green" devices={devs} modalTitle={`${d.name} — 正常裝置 (${okN} 台)`}/>
+    <ClickableStat label="異常裝置數" count={badN} sub1={`佔總數 ${100-rate}%`} sub2={`高風險: ${highN} 台`} variant="red" devices={devs} modalTitle={`${d.name} — 異常裝置 (${devs.length} 台)`}/>
+  </div>
+  {showTabs&&<div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>{(d.id==="compliance"?[{id:"device",l:"裝置視角"},{id:"control",l:"ISO 27001"},{id:"cis",l:"CIS Benchmark"},{id:"nist",l:"NIST 800-53"}]:[{id:"device",l:"裝置視角"},{id:"control",l:"規則視角"}]).map(t=><div key={t.id} onClick={()=>setVt(t.id)} style={{padding:"8px 20px",fontSize:13,cursor:"pointer",fontWeight:vt===t.id?600:400,color:vt===t.id?C.primary:C.textSec,borderBottom:vt===t.id?`2px solid ${C.primary}`:"2px solid transparent"}}>{t.l}</div>)}</div>}
+  {d.id==="hardware"&&<div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>{hwSubTabs.map(t=><div key={t.id} onClick={()=>setHwTab(t.id)} style={{padding:"8px 20px",fontSize:13,cursor:"pointer",fontWeight:hwTab===t.id?600:400,color:hwTab===t.id?C.primary:C.textSec,borderBottom:hwTab===t.id?`2px solid ${C.primary}`:"2px solid transparent"}}>{t.l}</div>)}</div>}
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"auto"}}>
+    {/* Security - device view */}
+    {d.id==="security"&&vt==="device"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>使用者</TH><TH>部門</TH><TH>防毒軟體</TH><TH>版本</TH><TH>狀態</TH><TH>防火牆</TH><TH>BitLocker</TH><TH>上次掃描</TH><TH>風險</TH></tr></thead><tbody>
+      {secDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dept}</TD><TD>{r.av}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.avVer}</TD><TD>{r.avOk?<Badge type="success" text="正常"/>:<Badge type="danger" text="異常"/>}</TD><TD>{r.fw?<Badge type="success" text="啟用"/>:<Badge type="danger" text="未啟用"/>}</TD><TD>{r.bl?<Badge type="success" text="已加密"/>:<Badge type="warn" text="未加密"/>}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.scan}</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>)}
+    </tbody></table>}
+    {/* Security - rule view */}
+    {d.id==="security"&&vt==="control"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>規則名稱</TH><TH>觸發裝置</TH><TH>影響裝置</TH><TH>風險</TH><TH>類別</TH><TH>最近偵測</TH><TH>處理狀態</TH></tr></thead><tbody>
+      {[
+        {n:"防毒軟體未安裝",a:1,r:"高",cat:"端點防護",time:"2026/02/22 09:03",status:"處理中",dev:"LAPTOP-MK01"},
+        {n:"防火牆未全部啟用",a:1,r:"高",cat:"網路防護",time:"2026/02/22 08:45",status:"處理中",dev:"DESKTOP-HR03"},
+        {n:"系統磁碟未加密 (BitLocker)",a:2,r:"中",cat:"資料保護",time:"2026/02/21 17:30",status:"待處理",dev:"LAPTOP-MK01, PC-SALES-12"},
+        {n:"遠端桌面無 NLA",a:1,r:"中",cat:"存取控制",time:"2026/02/22 09:03",status:"待處理",dev:"LAPTOP-MK01"},
+        {n:"防毒即時防護未啟用",a:0,r:"高",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
+        {n:"病毒定義超過 7 天未更新",a:0,r:"中",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
+        {n:"螢幕鎖定未啟用或逾時過長",a:0,r:"中",cat:"存取控制",time:"—",status:"無異常",dev:"—"},
+        {n:"本機管理員帳號過多",a:0,r:"低",cat:"帳號管理",time:"—",status:"無異常",dev:"—"},
+        {n:"Guest 帳號未停用",a:0,r:"中",cat:"帳號管理",time:"—",status:"無異常",dev:"—"},
+        {n:"USB 儲存未限制",a:0,r:"低",cat:"資料保護",time:"—",status:"無異常",dev:"—"},
+        {n:"自動登入已開啟",a:0,r:"中",cat:"存取控制",time:"—",status:"無異常",dev:"—"},
+        {n:"防毒超過 14 天未完整掃描",a:0,r:"中",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
+      ].map(function(c,i){const stColor=c.status==="處理中"?C.orange:c.status==="待處理"?C.red:C.textThi;return <TR key={i}><TD style={{fontWeight:500}}>{c.n}</TD><TD>{c.a > 0 ? c.a+" 台" : <span style={{color:C.textThi}}>0</span>}</TD><TD style={{color:c.dev==="—"?C.textThi:C.textSec,fontSize:12}}>{c.dev}</TD><TD><RiskBadge level={c.r}/></TD><TD style={{fontSize:12,color:C.textSec}}>{c.cat}</TD><TD style={{fontSize:12,color:c.time==="—"?C.textThi:C.textSec}}>{c.time}</TD><TD style={{fontSize:12,fontWeight:600,color:stColor}}>{c.status}</TD></TR>})}
+    </tbody></table>}
+    {/* Compliance - device view */}
+    {d.id==="compliance"&&vt==="device"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>使用者</TH><TH>部門</TH><TH>不合規數</TH><TH>最高風險</TH><TH>不合規項目</TH></tr></thead><tbody>
+      {[{n:"LAPTOP-MK01",u:"王小明",dp:"業務部門",f:5,r:"高",issues:"密碼不足、未授權軟體(TeamViewer)、防毒未裝、BitLocker 未啟用"},{n:"PC-SALES-12",u:"張大偉",dp:"業務部門",f:3,r:"高",issues:"密碼不足、未授權軟體(uTorrent)、BitLocker 未啟用"},{n:"DESKTOP-HR03",u:"李美麗",dp:"HR部門",f:2,r:"高",issues:"防火牆未啟用、密碼複雜度未啟用"},{n:"DESKTOP-G7H8",u:"陳小華",dp:"財務部門",f:1,r:"中",issues:"帳戶鎖定閾值為 0"},{n:"PC-RD-18",u:"吳宗翰",dp:"研發部門",f:1,r:"中",issues:"缺少 CrowdStrike (路徑: 未安裝)"}].map((r,i)=><TR key={i}><TD link>{r.n}</TD><TD style={{color:C.textSec}}>{r.u}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dp}</TD><TD>{r.f}</TD><TD><RiskBadge level={r.r}/></TD><TD style={{color:C.textSec,fontSize:12,maxWidth:280}}>{r.issues}</TD></TR>)}
+    </tbody></table>}
+    {/* Compliance - ISO view */}
+    {d.id==="compliance"&&vt==="control"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>條款編號</TH><TH>控制項</TH><TH>規則</TH><TH>檢測項目</TH><TH>合規率</TH><TH>風險</TH></tr></thead><tbody>
+      {compControls.map((c,i)=>{const pct=Math.round(c.ok/c.total*100);const col=pct>=95?C.green:pct>=80?C.orange:C.red;return <TR key={i}><TD style={{fontWeight:600,fontFamily:"monospace",fontSize:12,color:C.textSec}}>{c.iso}</TD><TD style={{fontWeight:500}}>{c.name}</TD><TD style={{fontFamily:"monospace",fontSize:12,color:C.textSec}}>{c.rule}</TD><TD style={{fontSize:12}}>{c.check}</TD><TD><div style={{display:"flex",alignItems:"center",gap:6,minWidth:100}}><Bar value={pct} color={col} h={6}/><span style={{fontSize:12,fontWeight:600,color:col}}>{pct}%</span></div><div style={{fontSize:10,color:C.textThi}}>{c.ok}/{c.total}</div></TD><TD><RiskBadge level={c.risk}/></TD></TR>})}
+    </tbody></table>}
+    {/* Compliance - CIS Benchmark view */}
+    {d.id==="compliance"&&vt==="cis"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>基準編號</TH><TH>項目名稱</TH><TH>分類</TH><TH>檢測項目</TH><TH>合規率</TH><TH>風險</TH></tr></thead><tbody>
+      {compCIS.map((c,i)=>{const pct=Math.round(c.ok/c.total*100);const col=pct>=95?C.green:pct>=80?C.orange:C.red;return <TR key={i}><TD style={{fontWeight:600,fontFamily:"monospace",fontSize:12,color:C.textSec}}>{c.cis}</TD><TD style={{fontWeight:500}}>{c.name}</TD><TD style={{fontSize:12,color:C.textSec}}>{c.category}</TD><TD style={{fontSize:12}}>{c.check}</TD><TD><div style={{display:"flex",alignItems:"center",gap:6,minWidth:100}}><Bar value={pct} color={col} h={6}/><span style={{fontSize:12,fontWeight:600,color:col}}>{pct}%</span></div><div style={{fontSize:10,color:C.textThi}}>{c.ok}/{c.total}</div></TD><TD><RiskBadge level={c.risk}/></TD></TR>})}
+    </tbody></table>}
+    {/* Compliance - NIST 800-53 view */}
+    {d.id==="compliance"&&vt==="nist"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>控制編號</TH><TH>控制項名稱</TH><TH>控制家族</TH><TH>檢測項目</TH><TH>合規率</TH><TH>風險</TH></tr></thead><tbody>
+      {compNIST.map((c,i)=>{const pct=Math.round(c.ok/c.total*100);const col=pct>=95?C.green:pct>=80?C.orange:C.red;return <TR key={i}><TD style={{fontWeight:600,fontFamily:"monospace",fontSize:12,color:C.textSec}}>{c.nist}</TD><TD style={{fontWeight:500}}>{c.name}</TD><TD style={{fontSize:12,color:C.textSec}}>{c.family}</TD><TD style={{fontSize:12}}>{c.check}</TD><TD><div style={{display:"flex",alignItems:"center",gap:6,minWidth:100}}><Bar value={pct} color={col} h={6}/><span style={{fontSize:12,fontWeight:600,color:col}}>{pct}%</span></div><div style={{fontSize:10,color:C.textThi}}>{c.ok}/{c.total}</div></TD><TD><RiskBadge level={c.risk}/></TD></TR>})}
+    </tbody></table>}
+    {/* Updates */}
+    {d.id==="updates"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP 位址</TH><TH>使用者</TH><TH>部門</TH><TH>作業系統</TH><TH>最後更新</TH><TH>逾期天數</TH><TH>待裝</TH><TH>重大</TH><TH>缺失 KB</TH><TH>風險</TH></tr></thead><tbody>
+      {updDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dept}</TD><TD style={{fontSize:12}}>{r.os}</TD><TD style={{fontSize:12}}>{r.lastUpd}</TD><TD style={{color:r.overdue>30?C.red:r.overdue>14?C.orange:C.text,fontWeight:600}}>{r.overdue} 天</TD><TD style={{textAlign:"center"}}>{r.pending}</TD><TD style={{textAlign:"center",color:r.critical>0?C.red:C.textThi,fontWeight:r.critical>0?700:400}}>{r.critical}</TD><TD style={{fontSize:11,color:C.textSec,fontFamily:"monospace",maxWidth:200}}>{r.kbs}</TD><TD><RiskBadge level={r.risk}/></TD></TR>)}
+    </tbody></table>}
+    {/* Hardware - sub tabs */}
+    {d.id==="hardware"&&hwTab==="storage"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>使用者</TH><TH>磁碟用量</TH><TH>S.M.A.R.T.</TH><TH>壞軌數</TH><TH>I/O 錯誤</TH><TH>完整性錯誤</TH><TH>使用時數</TH><TH>風險</TH></tr></thead><tbody>
+      {hwStorageDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{fontSize:12,fontWeight:500}}>{r.disk}</TD><TD>{r.smart==="正常"?<Badge type="success" text="正常"/>:<Badge type="danger" text="警告"/>}</TD><TD style={{color:r.badSectors>0?C.red:C.textThi,fontWeight:r.badSectors>0?700:400}}>{r.badSectors}</TD><TD style={{color:r.ioErrors>10?C.orange:C.textThi,fontWeight:r.ioErrors>10?600:400}}>{r.ioErrors}</TD><TD style={{color:r.integrityErrors>0?C.orange:C.textThi}}>{r.integrityErrors}</TD><TD style={{fontSize:12,color:r.hours>35000?C.orange:C.textSec}}>{r.hours.toLocaleString()}h</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>)}
+    </tbody></table>}
+    {d.id==="hardware"&&hwTab==="battery"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>使用者</TH><TH>電池健康度</TH><TH>設計容量</TH><TH>目前最大容量</TH><TH>充放電次數</TH><TH>異常斷電(30天)</TH><TH>風險</TH></tr></thead><tbody>
+      {hwBatteryDevices.map((r,i)=>{const hp=parseInt(r.health);return <TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{fontWeight:600,color:hp<50?C.red:hp<70?C.orange:C.green}}>{r.health}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.designCap}</TD><TD style={{fontSize:12}}>{r.currentCap}</TD><TD style={{color:r.cycles>500?C.orange:C.textSec,fontWeight:r.cycles>500?600:400}}>{r.cycles} 次</TD><TD style={{color:r.powerLoss>3?C.red:r.powerLoss>0?C.orange:C.textThi,fontWeight:r.powerLoss>3?700:400}}>{r.powerLoss}</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>})}
+    </tbody></table>}
+    {d.id==="hardware"&&hwTab==="stability"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>使用者</TH><TH>藍屏(30天)</TH><TH>上次藍屏原因</TH><TH>非正常關機(30天)</TH><TH>硬體錯誤</TH><TH>驅動當掉</TH><TH>風險</TH></tr></thead><tbody>
+      {hwStabilityDevices.map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:r.bsod>2?C.red:r.bsod>0?C.orange:C.textThi,fontWeight:r.bsod>0?700:400}}>{r.bsod}</TD><TD style={{fontSize:11,fontFamily:"monospace",color:r.lastBsod==="—"?C.textThi:C.red,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.lastBsod}</TD><TD style={{color:r.unexpShutdown>3?C.red:r.unexpShutdown>0?C.orange:C.textThi,fontWeight:r.unexpShutdown>3?700:400}}>{r.unexpShutdown}</TD><TD style={{color:r.hwErrors>0?C.orange:C.textThi}}>{r.hwErrors}</TD><TD style={{color:r.driverCrash>3?C.orange:C.textThi}}>{r.driverCrash}</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>)}
+    </tbody></table>}
+    {d.id==="hardware"&&hwTab==="temp"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>使用者</TH><TH>CPU 目前溫度</TH><TH>CPU 最高溫度</TH><TH>過熱降速</TH><TH>過熱事件(30天)</TH><TH>風險</TH></tr></thead><tbody>
+      {hwTempDevices.map((r,i)=>{const now=parseInt(r.cpuNow),max=parseInt(r.cpuMax);return <TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:C.textSec}}>{r.ip}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{fontWeight:600,color:now>=80?C.red:now>=65?C.orange:C.green}}>{r.cpuNow}</TD><TD style={{fontWeight:600,color:max>=90?C.red:max>=80?C.orange:C.green}}>{r.cpuMax}</TD><TD>{r.throttle?<Badge type="danger" text="降速中"/>:<Badge type="success" text="正常"/>}</TD><TD style={{color:r.overheatEvents>5?C.red:r.overheatEvents>0?C.orange:C.textThi,fontWeight:r.overheatEvents>5?700:400}}>{r.overheatEvents}</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>})}
+    </tbody></table>}
+  </div>
+</div>};
+
+// ── Report Page ──
+const ReportPage=({onBack,setShowExport})=>{const riskItems=[{rule:"UPD-001",n:"Windows 超過 30 天未更新",dom:"系統更新",risk:"高",aff:120,pct:24,iso:"A.8.8"},{rule:"POL-005",n:"偵測到未授權軟體",dom:"政策合規",risk:"高",aff:45,pct:9,iso:"A.8.19"},{rule:"POL-001",n:"密碼長度不足 8 碼",dom:"政策合規",risk:"高",aff:15,pct:3,iso:"A.5.1"},{rule:"SEC-005",n:"系統磁碟未加密",dom:"安全性狀態",risk:"中",aff:20,pct:4,iso:"A.8.24"},{rule:"HW-002",n:"磁碟使用率超過 85%",dom:"硬體健康",risk:"中",aff:18,pct:3.6},{rule:"POL-004",n:"帳戶無鎖定機制",dom:"政策合規",risk:"中",aff:30,pct:6,iso:"A.8.5"},{rule:"HW-006",n:"裝置超過 5 年",dom:"硬體健康",risk:"低",aff:60,pct:12}];
+return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+  <div style={{display:"flex",justifyContent:"space-between"}}><div onClick={onBack} style={{cursor:"pointer",color:C.primary,fontSize:13,fontWeight:500}}>← 返回總覽</div><Btn outline onClick={()=>setShowExport(true)}>匯出此報告</Btn></div>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"20px 24px"}}><div style={{fontSize:20,fontWeight:700}}>IT 健檢詳細報告</div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>2026/02/22 23:03 | 500 台 | 8 分 32 秒 | admin@wisecore.com</div></div>
+  <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:14}}>
+    <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:18,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}><Score score={92} size={110} sw={9}/><Badge type="success" text="良好"/><div style={{fontSize:12,color:C.textSec,marginTop:4}}>整體健康評分</div></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>{[{n:"安全性狀態",v:98,c:C.green},{n:"政策合規",v:67,c:C.orange},{n:"系統更新",v:65,c:C.red},{n:"硬體健康",v:95,c:C.green}].map(x=><div key={x.n} style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:14}}><div style={{fontSize:12,fontWeight:600,marginBottom:6}}>{x.n}</div><div style={{fontSize:26,fontWeight:700,color:x.c}}>{x.v}%</div><Bar value={x.v} color={x.c} h={5}/></div>)}</div>
+  </div>
+  {/* Trend */}
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:18}}><div style={{fontSize:15,fontWeight:700,marginBottom:12}}>趨勢比較（與上次健檢）</div><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>{[{l:"整體",p:88,c:92,g:true},{l:"安全性",p:95,c:98,g:true},{l:"合規",p:62,c:67,g:true},{l:"更新",p:70,c:65,g:false},{l:"硬體",p:93,c:95,g:true}].map(t=><div key={t.l} style={{textAlign:"center",padding:10,borderRadius:8,background:"#FAFAFA"}}><div style={{fontSize:12,color:C.textSec,marginBottom:4}}>{t.l}</div><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><span style={{color:C.textThi}}>{t.p}%</span><span style={{color:t.g?C.green:C.red,fontWeight:600}}>→</span><span style={{fontSize:18,fontWeight:700,color:t.g?C.green:C.red}}>{t.c}%</span></div><div style={{fontSize:11,color:t.g?C.green:C.red,fontWeight:600}}>{t.g?"▲":"▼"} {Math.abs(t.c-t.p)}%</div></div>)}</div></div>
+  {/* Risk table */}
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}><div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:15,fontWeight:700}}>風險項目清單</div><div style={{display:"flex",gap:6}}><Badge type="danger" text={`高 ${riskItems.filter(r=>r.risk==="高").length}`}/><Badge type="warn" text={`中 ${riskItems.filter(r=>r.risk==="中").length}`}/><Badge type="info" text={`低 ${riskItems.filter(r=>r.risk==="低").length}`}/></div></div>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>規則</TH><TH>名稱</TH><TH>領域</TH><TH>ISO</TH><TH>風險</TH><TH>影響</TH><TH>佔比</TH></tr></thead><tbody>{riskItems.map((r,i)=><TR key={i}><TD style={{fontFamily:"monospace",fontSize:12}}>{r.rule}</TD><TD style={{fontWeight:500}}>{r.n}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dom}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:r.iso?C.primary:C.textThi}}>{r.iso||"—"}</TD><TD><RiskBadge level={r.risk}/></TD><TD style={{fontWeight:600}}>{r.aff} 台</TD><TD><div style={{display:"flex",alignItems:"center",gap:4,minWidth:70}}><Bar value={r.pct*4} color={r.risk==="高"?C.red:r.risk==="中"?C.orange:C.blue} h={4}/><span style={{fontSize:11,color:C.textSec}}>{r.pct}%</span></div></TD></TR>)}</tbody></table></div>
+  {/* Actions */}
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:18}}><div style={{fontSize:15,fontWeight:700,marginBottom:12}}>建議行動方案</div>
+    {[{l:"優先處理",c:C.red,items:["立即對 120 台裝置執行 Windows Update (KB5034763 等)","移除 45 台裝置的未授權軟體 (TeamViewer, uTorrent, AnyDesk)","為 15 台裝置設定密碼政策 (最小 8 碼)"]},{l:"建議改善",c:C.orange,items:["啟用 20 台裝置的 BitLocker 加密","設定 30 台裝置帳戶鎖定閾值","清理 18 台磁碟空間 (>85%)"]},{l:"可排程處理",c:C.blue,items:["規劃 60 台超過 5 年裝置的汰換"]}].map(g=><div key={g.l} style={{marginBottom:14}}><div style={{fontSize:13,fontWeight:600,marginBottom:4,display:"flex",alignItems:"center",gap:6}}><span style={{width:8,height:8,borderRadius:99,background:g.c}}/>{g.l}</div>{g.items.map((it,i)=><div key={i} style={{padding:"4px 0 4px 20px",fontSize:13,color:C.textSec}}>• {it}</div>)}</div>)}
+  </div>
+</div>};
+
+// ── Export Modal ──
+const ExportModal=({onClose})=>{const[fmt,setFmt]=useState("pdf");const[scope,setScope]=useState("full");const[exporting,setExporting]=useState(false);const[done,setDone]=useState(false);
+return <Modal onClose={onClose} width={540}><div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:17,fontWeight:700}}>匯出健檢報告</span><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:C.textThi}}>✕</span></div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>2026/02/22 23:03 | 500 台</div></div>
+  <div style={{padding:"20px 24px",overflowY:"auto"}}>{done?<div style={{textAlign:"center",padding:"24px 0"}}><svg width={48} height={48} viewBox="0 0 24 24" fill={C.green}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg><div style={{fontSize:17,fontWeight:700,marginTop:8}}>匯出完成</div><div style={{display:"flex",gap:8,justifyContent:"center",marginTop:16}}><Btn primary onClick={onClose}>下載檔案</Btn><Btn onClick={()=>setDone(false)}>匯出其他格式</Btn></div></div>:<>
+    <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:600,marginBottom:8}}>匯出格式</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{[{id:"pdf",n:"PDF 報告",d:"管理層檢閱，含圖表"},{id:"xlsx",n:"Excel",d:"IT 人員分析用"},{id:"csv",n:"CSV",d:"通用格式"},{id:"json",n:"JSON",d:"API / SIEM 串接"}].map(f=><div key={f.id} onClick={()=>setFmt(f.id)} style={{padding:12,borderRadius:8,border:`2px solid ${fmt===f.id?C.primary:C.border}`,background:fmt===f.id?C.primaryLight:C.white,cursor:"pointer"}}><div style={{fontWeight:600,color:fmt===f.id?C.primary:C.text}}>{f.n}</div><div style={{fontSize:11,color:C.textSec}}>{f.d}</div></div>)}</div></div>
+    <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:600,marginBottom:8}}>報告範圍</div>{[{id:"full",l:"完整報告"},{id:"security",l:"僅安全性狀態"},{id:"compliance",l:"僅政策合規 (ISO 27001)"},{id:"updates",l:"僅系統更新"},{id:"hardware",l:"僅硬體健康"}].map(s=><div key={s.id} onClick={()=>setScope(s.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:6,cursor:"pointer",marginBottom:2,background:scope===s.id?"#FAFAFA":"transparent"}}><div style={{width:16,height:16,borderRadius:99,border:`2px solid ${scope===s.id?C.primary:C.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{scope===s.id&&<div style={{width:8,height:8,borderRadius:99,background:C.primary}}/>}</div><span style={{fontSize:13}}>{s.l}</span></div>)}</div>
+    {fmt==="pdf"&&<div style={{background:"#FAFAFA",borderRadius:8,padding:12,border:`1px solid ${C.borderLight}`}}><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>PDF 選項</div>{["包含趨勢比較","包含建議行動清單","包含裝置詳細清單 (含 IP、KB 編號)"].map((o,i)=><label key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer",marginBottom:4}}><input type="checkbox" defaultChecked style={{accentColor:C.primary}}/>{o}</label>)}</div>}
+  </>}</div>
+  {!done&&<div style={{padding:"14px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{setExporting(true);setTimeout(()=>{setExporting(false);setDone(true)},1500)}} disabled={exporting}>{exporting?"匯出中...":"開始匯出"}</Btn></div>}
+</Modal>};
+
+// ── History ──
+const histData=[{time:"2026/02/22 23:03",trig:"手動",cnt:500,h:4,m:6,l:12,total:"22",dur:"8:32",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/21 18:15",trig:"排程",cnt:235,h:2,m:5,l:8,total:"15",dur:"4:18",st:"已完成",user:"系統排程"},{time:"2026/02/20 22:45",trig:"手動",cnt:180,h:3,m:4,l:6,total:"13",dur:"3:45",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/19 15:30",trig:"排程",cnt:915,h:8,m:12,l:18,total:"38",dur:"12:56",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/18 09:20",trig:"手動",cnt:500,h:5,m:7,l:14,total:"26",dur:"9:12",st:"已完成",user:"it@wisecore.com"}];
+const HistoryPage=()=><div style={{padding:24}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><input placeholder="搜尋..." style={{padding:"7px 14px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,width:260}}/><Btn outline>匯出</Btn></div><div style={{fontSize:12,color:C.textSec,marginBottom:8}}>共 {histData.length} 筆</div><div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr>{["時間","方式","裝置數","高","中","低","項目","耗時","狀態","操作人員","動作"].map(h=><TH key={h}>{h}</TH>)}</tr></thead><tbody>{histData.map((r,i)=><TR key={i}><TD style={{whiteSpace:"nowrap"}}>{r.time}</TD><TD><Badge type={r.trig==="排程"?"success":"info"} text={r.trig}/></TD><TD style={{textAlign:"center"}}>{r.cnt}</TD><TD style={{textAlign:"center",color:C.red,fontWeight:600}}>{r.h}</TD><TD style={{textAlign:"center",color:C.orange,fontWeight:600}}>{r.m}</TD><TD style={{textAlign:"center",color:C.blue,fontWeight:600}}>{r.l}</TD><TD style={{textAlign:"center"}}>{r.total}</TD><TD>{r.dur}</TD><TD><Badge type="success" text={r.st}/></TD><TD style={{fontSize:12,color:C.textSec}}>{r.user}</TD><TD><KebabMenu items={[{label:"查看報告"},{label:"匯出 PDF"},{label:"匯出 CSV"}]}/></TD></TR>)}</tbody></table></div></div>;
+
+// ── Rules ──
+const metricsByDomain={"安全性狀態":["防毒軟體安裝狀態|bool","防毒即時防護|bool","病毒定義距今天數|num","防毒版本低於|text","上次掃描距今天數|num","防火牆全設定檔啟用|bool","BitLocker 狀態|opt","螢幕鎖定逾時(分鐘)|num","本機管理員帳號數量|num","USB 儲存限制|bool","RDP NLA|bool"].map(s=>{const[l,t]=s.split("|");return{l,t}}),"政策合規":["密碼最小長度|num","密碼使用期限(天)|num","密碼複雜度啟用|bool","帳戶鎖定閾值|num","未授權軟體|bool","缺少必要軟體|bool","軟體版本過舊|bool","稽核政策啟用|bool","NTP 同步|bool"].map(s=>{const[l,t]=s.split("|");return{l,t}}),"系統更新":["更新逾期天數|num","待裝重大更新數|num","自動更新啟用|bool","OS 已終止支援|bool","BIOS 距今天數|num"].map(s=>{const[l,t]=s.split("|");return{l,t}}),"硬體健康":["磁碟使用率(%)|num","SMART 預測故障|bool","記憶體使用率(%)|num","記憶體峰值(%)|num","電池健康度(%)|num","裝置年齡(年)|num","距上次重開機天數|num","近30天藍屏次數|num"].map(s=>{const[l,t]=s.split("|");return{l,t}})};
+const rulesInit=[{id:"SEC-001",on:true,dom:"安全性狀態",name:"防毒軟體未安裝",cond:"防毒軟體安裝狀態 = 未安裝",risk:"高",date:"2026/02/15",iso:"A.8.7",notify:true},{id:"SEC-002",on:true,dom:"安全性狀態",name:"防毒即時防護未啟用",cond:"防毒即時防護 = 未啟用",risk:"高",date:"2026/02/15",iso:"A.8.7",notify:true},{id:"SEC-004",on:true,dom:"安全性狀態",name:"防火牆未全部啟用",cond:"防火牆全設定檔啟用 = 未啟用",risk:"高",date:"2026/02/15",iso:"A.8.9",notify:true},{id:"SEC-005",on:true,dom:"安全性狀態",name:"系統磁碟未加密",cond:"BitLocker 狀態 = 未加密",risk:"中",date:"2026/02/15",iso:"A.8.24",notify:false},{id:"POL-001",on:true,dom:"政策合規",name:"密碼長度不足 8 碼",cond:"密碼最小長度 < 8",risk:"高",date:"2026/02/10",iso:"A.5.1",notify:true},{id:"POL-005",on:true,dom:"政策合規",name:"偵測到未授權軟體",cond:"未授權軟體 = 是",risk:"高",date:"2026/02/10",iso:"A.8.19",notify:true},{id:"UPD-001",on:true,dom:"系統更新",name:"Windows 超過 30 天未更新",cond:"更新逾期天數 > 30",risk:"高",date:"2026/02/15",iso:"A.8.8",notify:true},{id:"UPD-003",on:true,dom:"系統更新",name:"有待裝重大更新",cond:"待裝重大更新數 > 0",risk:"高",date:"2026/02/15",iso:"A.8.8",notify:true},{id:"HW-001",on:true,dom:"硬體健康",name:"磁碟使用率超過 90%",cond:"磁碟使用率(%) > 90",risk:"高",date:"2026/02/08",iso:"",notify:true},{id:"HW-003",on:true,dom:"硬體健康",name:"SMART 預測磁碟故障",cond:"SMART 預測故障 = 是",risk:"高",date:"2026/02/08",iso:"",notify:true},{id:"SEC-011",on:true,dom:"安全性狀態",name:"防毒超過 14 天未掃描",cond:"上次掃描距今天數 > 14",risk:"中",date:"2026/02/15",iso:"A.8.7",notify:false},{id:"POL-007",on:true,dom:"政策合規",name:"稽核日誌未啟用",cond:"稽核政策啟用 = 未啟用",risk:"低",date:"2026/02/10",iso:"A.8.15",notify:false},{id:"HW-006",on:true,dom:"硬體健康",name:"裝置超過 5 年",cond:"裝置年齡(年) > 5",risk:"低",date:"2026/02/08",iso:"",notify:false}];
+
+// Rule Form Modal
+const RuleFormModal=({onClose,editRule})=>{
+  const parse=c=>{if(!c)return{m:"",o:"等於",v:""};for(const op of[">=","<=",">","<","="]){const i=c.indexOf(op);if(i>0)return{m:c.substring(0,i).trim(),o:{">":"大於",">=":"大於等於","<":"小於","<=":"小於等於","=":"等於"}[op],v:c.substring(i+op.length).trim()}}return{m:c,o:"等於",v:""}};
+  const p=editRule?parse(editRule.cond):{m:"",o:"等於",v:""};
+  const[name,setName]=useState(editRule?.name||"");const[dom,setDom]=useState(editRule?.dom||"安全性狀態");const[metric,setMetric]=useState(p.m);const[op,setOp]=useState(p.o);const[val,setVal]=useState(p.v);const[risk,setRisk]=useState(editRule?.risk||"高");const[notify,setNotify]=useState(editRule?.notify??true);const[rem,setRem]=useState("");const[saving,setSaving]=useState(false);
+  const ms=metricsByDomain[dom]||[];const sel=ms.find(m=>m.l===metric)||ms[0];const isNum=sel?.t==="num";
+  const numOps=["大於","大於等於","小於","小於等於","等於"];const boolVals=["未安裝","已安裝","未啟用","已啟用","是","否"];
+  return <Modal onClose={onClose} width={600}>
+    <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}><span style={{fontSize:17,fontWeight:700}}>{editRule?"編輯規則":"新增規則"}</span><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:C.textThi}}>✕</span></div>
+    <div style={{padding:"20px 24px",overflowY:"auto",flex:1,display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",gap:10}}><div style={{flex:2}}><label style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:4,display:"block"}}>規則名稱 <span style={{color:C.red}}>*</span></label><input value={name} onChange={e=>setName(e.target.value)} placeholder="例：防毒軟體未安裝" style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}/></div><div style={{flex:1}}><label style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:4,display:"block"}}>檢測領域</label><select value={dom} onChange={e=>{setDom(e.target.value);setMetric("")}} style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>{Object.keys(metricsByDomain).map(d=><option key={d}>{d}</option>)}</select></div></div>
+      <div style={{background:"#FAFAFA",borderRadius:8,padding:14,border:`1px solid ${C.borderLight}`}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>觸發條件</div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{fontSize:13,color:C.textSec,flexShrink:0}}>當</span>
+          <select value={metric||ms[0]?.l} onChange={e=>setMetric(e.target.value)} style={{flex:3,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13}}>{ms.map(m=><option key={m.l} value={m.l}>{m.l}</option>)}</select>
+          <select value={op} onChange={e=>setOp(e.target.value)} style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,minWidth:72}}>{(isNum?numOps:["等於"]).map(o=><option key={o}>{o}</option>)}</select>
+          {isNum?<input type="number" placeholder="值" value={val} onChange={e=>setVal(e.target.value)} style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,minWidth:60}}/>
+          :<select value={val} onChange={e=>setVal(e.target.value)} style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,minWidth:72}}>{boolVals.map(o=><option key={o}>{o}</option>)}</select>}
+          <span style={{fontSize:13,color:C.textSec,flexShrink:0}}>時觸發</span>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        <div style={{flex:1}}><label style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6,display:"block"}}>風險等級</label><div style={{display:"flex",gap:6}}>{[{l:"高",c:C.red,bg:C.redBg},{l:"中",c:C.orange,bg:C.orangeBg},{l:"低",c:C.blue,bg:C.blueBg}].map(r=><div key={r.l} onClick={()=>setRisk(r.l)} style={{flex:1,padding:"8px",borderRadius:6,cursor:"pointer",border:`2px solid ${risk===r.l?r.c:C.border}`,background:risk===r.l?r.bg:C.white,textAlign:"center",fontSize:13,fontWeight:600,color:risk===r.l?r.c:C.textThi}}>{r.l}</div>)}</div></div>
+        <div style={{width:160}}><label style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6,display:"block"}}>觸發通知</label><div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0"}}><Toggle on={notify} onToggle={()=>setNotify(!notify)}/><span style={{fontSize:13,color:notify?C.primary:C.textThi}}>{notify?"開啟":"關閉"}</span></div></div>
+      </div>
+      <div><label style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:4,display:"block"}}>建議修復方式（選填）</label><textarea value={rem} onChange={e=>setRem(e.target.value)} placeholder="例：請至 Windows Update 執行系統更新" style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,resize:"vertical",minHeight:50}}/></div>
+    </div>
+    <div style={{padding:"14px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8,flexShrink:0}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{setSaving(true);setTimeout(()=>{setSaving(false);onClose()},1200)}} disabled={saving||!name}>{saving?"儲存中...":"儲存規則"}</Btn></div>
+  </Modal>;
+};
+
+const RulesPage=()=>{const[df,setDf]=useState("全部領域");const[rf,setRf]=useState("全部");const[rules,setRules]=useState(rulesInit);const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[editRule,setEditRule]=useState(null);const[delRule,setDelRule]=useState(null);
+const filtered=rules.filter(r=>(df==="全部領域"||r.dom===df)&&(rf==="全部"||r.risk===rf)&&(!search||r.name.includes(search)));
+const openEdit=r=>{setEditRule(r);setShowForm(true)};
+return <div style={{padding:24,display:"flex",gap:16}}>
+  <div style={{flex:1,minWidth:0}}>
+    <div style={{background:"#FAFAFA",borderRadius:8,border:`1px solid ${C.border}`,padding:"14px 20px",marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,fontSize:15}}>檢測設定</span><div style={{display:"flex",gap:8}}><Btn small>還原預設</Btn><Btn small primary>儲存並套用</Btn></div></div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>設定各檢測規則的門檻與風險等級。最後修改：2026/02/22 23:10</div></div>
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="搜尋規則名稱" style={{padding:"7px 12px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,width:180}}/><select value={df} onChange={e=>setDf(e.target.value)} style={{padding:"7px 12px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13}}>{["全部領域","安全性狀態","政策合規","系統更新","硬體健康"].map(d=><option key={d}>{d}</option>)}</select><select value={rf} onChange={e=>setRf(e.target.value)} style={{padding:"7px 12px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13}}>{["全部","高","中","低"].map(r=><option key={r}>{r}</option>)}</select><div style={{flex:1}}/><Btn primary onClick={()=>{setEditRule(null);setShowForm(true)}}>+ 新增規則</Btn></div>
+    <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>啟用</TH><TH>領域</TH><TH>規則名稱</TH><TH>條件</TH><TH>ISO</TH><TH>風險</TH><TH>通知</TH><TH>更新</TH><TH>動作</TH></tr></thead><tbody>
+      {filtered.map(r=><TR key={r.id} onClick={()=>openEdit(r)}><TD><Toggle on={r.on} onToggle={()=>{const nr=[...rules];const idx=nr.findIndex(x=>x.id===r.id);nr[idx]={...nr[idx],on:!nr[idx].on};setRules(nr)}}/></TD><TD style={{fontSize:12,color:C.textSec}}>{r.dom}</TD><TD style={{fontWeight:500}}>{r.name}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.cond}</TD><TD style={{fontFamily:"monospace",fontSize:11,color:r.iso?C.primary:C.textThi,fontWeight:r.iso?600:400}}>{r.iso||"—"}</TD><TD><RiskBadge level={r.risk}/></TD><TD>{r.notify?<Badge type="success" text="開"/>:<Badge type="gray" text="關"/>}</TD><TD style={{fontSize:12,color:C.textThi,whiteSpace:"nowrap"}}>{r.date}</TD><TD><KebabMenu items={[{label:"編輯",onClick:()=>openEdit(r)},{label:"複製",onClick:()=>setRules([...rules,{...r,id:r.id+"-c",name:r.name+" (副本)"}])},{label:"刪除",danger:true,onClick:()=>setDelRule(r)}]}/></TD></TR>)}
+    </tbody></table></div>
+  </div>
+  <div style={{width:230,flexShrink:0}}><div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:16,position:"sticky",top:20}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>影響預覽</div><div style={{textAlign:"center",marginBottom:12}}><div style={{fontSize:34,fontWeight:800,color:C.primary}}>120 <span style={{fontSize:14}}>台</span></div><div style={{fontSize:12,color:C.textSec}}>受影響裝置</div></div><div style={{fontSize:13,fontWeight:600,marginBottom:6}}>風險分佈</div>{[{l:"高風險",n:22,c:C.red,p:18},{l:"中風險",n:45,c:C.orange,p:38},{l:"低風險",n:53,c:C.blue,p:44}].map(r=><div key={r.l} style={{marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}><span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:99,background:r.c}}/>{r.l}</span><span style={{fontWeight:600}}>{r.n}</span></div><Bar value={r.p} color={r.c} h={4}/></div>)}</div></div>
+  {showForm&&<RuleFormModal editRule={editRule} onClose={()=>{setShowForm(false);setEditRule(null)}}/>}
+  {delRule&&<Modal onClose={()=>setDelRule(null)} width={400}><div style={{padding:24}}><div style={{fontSize:17,fontWeight:700,marginBottom:8}}>確認刪除</div><div style={{fontSize:13,color:C.textSec,marginBottom:18}}>確定要刪除「<b style={{color:C.text}}>{delRule.name}</b>」？此操作無法復原。</div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={()=>setDelRule(null)}>取消</Btn><Btn danger onClick={()=>{setRules(rules.filter(x=>x.id!==delRule.id));setDelRule(null)}}>確認刪除</Btn></div></div></Modal>}
+</div>};
+
+// ── Notification Settings ──
+const NotifyPage=()=>{const[globalOn,setGlobalOn]=useState(true);const[emails,setEmails]=useState(["admin@wisecore.com","it@wisecore.com"]);const[newEmail,setNewEmail]=useState("");const[webhook,setWebhook]=useState(false);const[onComplete,setOnComplete]=useState(true);const[onSchedule,setOnSchedule]=useState(true);const[dailyDigest,setDailyDigest]=useState(false);
+return <div style={{padding:24,maxWidth:760}}>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div style={{fontSize:16,fontWeight:700}}>通知設定</div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:13,color:globalOn?C.primary:C.textThi}}>{globalOn?"已啟用":"已停用"}</span><Toggle on={globalOn} onToggle={()=>setGlobalOn(!globalOn)}/></div></div>
+    {!globalOn&&<div style={{background:C.orangeBg,borderRadius:8,padding:"10px 14px",border:`1px solid ${C.orangeBorder}`,fontSize:13,color:C.orange}}>通知已停用，所有規則的觸發通知將不會發送。</div>}
+    {globalOn&&<>
+      {/* Email */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>Email 通知</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {emails.map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#FAFAFA",borderRadius:6,border:`1px solid ${C.borderLight}`}}><span style={{flex:1,fontSize:13}}>{e}</span><span onClick={()=>setEmails(emails.filter((_,j)=>j!==i))} style={{cursor:"pointer",color:C.textThi,fontSize:16}}>✕</span></div>)}
+          <div style={{display:"flex",gap:8}}><input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="新增收件人 Email" style={{flex:1,padding:"8px 12px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13}}/><Btn small primary onClick={()=>{if(newEmail&&newEmail.includes("@")){setEmails([...emails,newEmail]);setNewEmail("")}}}>新增</Btn></div>
+        </div>
+      </div>
+      {/* Webhook (Phase 2 preview) */}
+      <div style={{marginBottom:20,opacity:0.5}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><div style={{fontSize:14,fontWeight:600}}>Webhook</div><Badge type="gray" text="Phase 2"/></div>
+        <div style={{padding:"8px 12px",background:"#FAFAFA",borderRadius:6,border:`1px solid ${C.borderLight}`,fontSize:13,color:C.textThi}}>Slack / Teams / 自訂 Webhook（即將推出）</div>
+      </div>
+      {/* Trigger conditions */}
+      <div>
+        <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>觸發條件</div>
+        {[{label:"健檢完成後，若有高風險項目立即通知",on:onComplete,toggle:()=>setOnComplete(!onComplete)},{label:"排程健檢完成後寄送摘要報告",on:onSchedule,toggle:()=>setOnSchedule(!onSchedule)},{label:"每日高風險摘要（每天 09:00）",on:dailyDigest,toggle:()=>setDailyDigest(!dailyDigest)}].map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:i>0?`1px solid ${C.borderLight}`:"none"}}>
+          <span style={{fontSize:13}}>{c.label}</span><Toggle on={c.on} onToggle={c.toggle}/>
+        </div>)}
+      </div>
+      <div style={{marginTop:16,padding:"10px 14px",background:"#FAFAFA",borderRadius:8,fontSize:12,color:C.textSec}}>
+        個別規則的通知開關可在「規則設定」頁面調整。高風險規則預設開啟通知，中/低風險預設關閉。
+      </div>
+    </>}
+  </div>
+  {/* Preview */}
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20}}>
+    <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>Email 通知預覽</div>
+    <div style={{background:"#FAFAFA",borderRadius:8,padding:16,border:`1px solid ${C.borderLight}`,fontSize:13}}>
+      <div style={{fontWeight:600,marginBottom:8}}>[WiseCore] IT 健檢發現高風險項目 (4 項)</div>
+      <div style={{color:C.textSec,marginBottom:10,fontSize:12}}>健檢時間：2026/02/22 23:03 | 掃描裝置：500 台 | 整體評分：92%</div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{background:"#EEEEEE"}}><th style={{padding:"6px 10px",textAlign:"left"}}>規則</th><th style={{padding:"6px 10px",textAlign:"left"}}>影響裝置數</th><th style={{padding:"6px 10px",textAlign:"left"}}>風險等級</th></tr></thead><tbody>
+        {[["UPD-001 Windows 超過 30 天未更新","120 台 (24%)","高"],["POL-005 偵測到未授權軟體","45 台 (9%)","高"],["POL-001 密碼長度不足 8 碼","15 台 (3%)","高"],["HW-001 磁碟使用率超過 90%","8 台 (1.6%)","高"]].map((r,i)=><tr key={i} style={{borderTop:"1px solid #E0E0E0"}}><td style={{padding:"6px 10px"}}>{r[0]}</td><td style={{padding:"6px 10px"}}>{r[1]}</td><td style={{padding:"6px 10px"}}><RiskBadge level={r[2]}/></td></tr>)}
+      </tbody></table>
+      <div style={{marginTop:10}}><span style={{color:C.primary,textDecoration:"underline",cursor:"pointer"}}>查看完整報告 →</span></div>
+    </div>
+  </div>
+</div>};
+
+// ── App ──
+function App(){const[tab,setTab]=useState("overview");const[dimDetail,setDimDetail]=useState(null);const[exp,setExp]=useState(null);const[view,setView]=useState(null);const[showExport,setShowExport]=useState(false);
+return <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
+  <Sidebar exp={exp} setExp={setExp}/>
+  <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+    <TopBar/><PageHeader/>
+    <TabBar tab={tab} setTab={t=>{setTab(t);setDimDetail(null);setView(null)}}/>
+    <div style={{flex:1,overflowY:"auto"}}>
+      {view==="report"?<ReportPage onBack={()=>setView(null)} setShowExport={setShowExport}/>
+      :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView} setShowExport={setShowExport}/>
+      :tab==="overview"&&dimDetail?<DimDetailPage dimId={dimDetail} onBack={()=>setDimDetail(null)}/>
+      :tab==="history"?<HistoryPage/>
+      :tab==="rules"?<RulesPage/>
+      :tab==="notify"?<NotifyPage/>:null}
+    </div>
+  </div>
+  {showExport&&<ExportModal onClose={()=>setShowExport(false)}/>}
+</div>}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
