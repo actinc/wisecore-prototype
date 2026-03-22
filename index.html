@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;font-size:14px;color:#333;background:#F4F4F4}
@@ -15,6 +14,11 @@ button{font-family:inherit;cursor:pointer}select,input,textarea{font-family:inhe
 table{border-spacing:0}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  [data-sidebar],[data-topbar],[data-breadcrumb],[data-no-print]{display:none!important}
+  body{background:#fff!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
 </style>
 </head>
 <body>
@@ -271,10 +275,10 @@ const ScoreTooltip=({show})=>{if(!show)return null;return <div style={{position:
 </div>};
 
 // ── Overview ──
-const OverviewPage=({setDimDetail,setView,setShowExport})=>{const[scanning,setScanning]=useState(false);const[deviceCount,setDeviceCount]=useState(500);const[showDeviceSelect,setShowDeviceSelect]=useState(false);const[showSchedule,setShowSchedule]=useState(false);const[showScoreTip,setShowScoreTip]=useState(false);return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+const OverviewPage=({setDimDetail,setView})=>{const[scanning,setScanning]=useState(false);const[deviceCount,setDeviceCount]=useState(500);const[showDeviceSelect,setShowDeviceSelect]=useState(false);const[showSchedule,setShowSchedule]=useState(false);const[showScoreTip,setShowScoreTip]=useState(false);return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontWeight:600,fontSize:14}}>選擇檢測對象</span><div onClick={()=>setShowDeviceSelect(true)} style={{padding:"5px 14px",background:C.primaryLight,borderRadius:6,fontSize:13,color:C.primary,fontWeight:500,cursor:"pointer"}}>選擇裝置 <span style={{background:C.primary,color:"#fff",borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:700}}>{deviceCount}</span></div><span style={{color:C.green,fontSize:12}}>已選擇 {deviceCount} 台裝置</span></div><Btn primary onClick={()=>{setScanning(true);setTimeout(()=>setScanning(false),2500)}} disabled={scanning}>{scanning?"掃描中...":"開始電腦健檢"}</Btn></div>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"11px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:12,fontSize:13}}><span style={{fontWeight:600}}>排程設定</span><Badge type="success" text="已啟用"/><span style={{color:C.textSec}}>每週一 02:00 | 全部裝置 | 下次：2026/02/24</span></div><Btn small outline onClick={()=>setShowSchedule(true)}>編輯</Btn></div>
-  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"22px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:24}}><Score score={92} size={110} sw={9}/><div><div style={{fontSize:18,fontWeight:700,display:"flex",alignItems:"center",gap:8}}>整體健康評分 <div style={{position:"relative",display:"inline-block"}} onMouseEnter={()=>setShowScoreTip(true)} onMouseLeave={()=>setShowScoreTip(false)}><svg width={16} height={16} viewBox="0 0 24 24" fill={C.textThi} style={{cursor:"pointer"}}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><ScoreTooltip show={showScoreTip}/></div></div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:5}}><Badge type="success" text="良好"/><span style={{color:C.textSec,fontSize:13}}>系統整體運作正常</span></div><div style={{color:C.textThi,fontSize:12,marginTop:5}}>已掃描 {deviceCount} 台裝置，發現 3 個需要關注的項目</div></div></div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={()=>setView("report")}>查看詳細報告</Btn><Btn outline onClick={()=>setShowExport(true)}>匯出健檢報告</Btn></div></div>
+  <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"22px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:24}}><Score score={92} size={110} sw={9}/><div><div style={{fontSize:18,fontWeight:700,display:"flex",alignItems:"center",gap:8}}>整體健康評分 <div style={{position:"relative",display:"inline-block"}} onMouseEnter={()=>setShowScoreTip(true)} onMouseLeave={()=>setShowScoreTip(false)}><svg width={16} height={16} viewBox="0 0 24 24" fill={C.textThi} style={{cursor:"pointer"}}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><ScoreTooltip show={showScoreTip}/></div></div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:5}}><Badge type="success" text="良好"/><span style={{color:C.textSec,fontSize:13}}>系統整體運作正常</span></div><div style={{color:C.textThi,fontSize:12,marginTop:5}}>已掃描 {deviceCount} 台裝置，發現 3 個需要關注的項目</div></div></div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={()=>setView("report")}>查看詳細報告</Btn><Btn outline onClick={doPrintExport}>匯出健檢報告</Btn></div></div>
   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>{dims.map(function(d){var badInfo=d.id==="security"?{n:10,t:"防毒/防火牆/加密異常"}:d.id==="compliance"?{n:165,t:"密碼/軟體/政策不合規"}:d.id==="updates"?{n:175,t:"系統更新逾期未安裝"}:{n:25,t:"磁碟/電池/溫度異常"};return <div key={d.id} onClick={()=>setDimDetail(d.id)} style={{background:C.white,borderRadius:8,border:`1px solid ${d.status==="success"?C.greenBorder:d.status==="warn"?C.orangeBorder:C.redBorder}`,padding:16,cursor:"pointer",transition:"box-shadow 0.2s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.07)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}><div style={{width:40,height:40,borderRadius:99,background:d.iconBg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8}}><svg width={22} height={22} viewBox="0 0 24 24" fill={d.iconColor}><path d={d.iconPath}/></svg></div><div style={{fontSize:14,fontWeight:700,marginBottom:4}}>{d.name}</div><div style={{marginBottom:4}}><Badge type={d.status} text={d.statusText}/></div>{d.status!=="success"&&<div style={{fontSize:11,color:d.color,fontWeight:600,marginBottom:4}}>{badInfo.n} 台異常 — {badInfo.t}</div>}<div style={{fontSize:12,color:C.textSec,marginBottom:10}}>{d.desc}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}><span style={{color:C.textSec}}>{d.metric}</span><span style={{fontWeight:700,color:d.color}}>{d.value}%</span></div><Bar value={d.value} color={d.color}/></div>})}</div>
   {/* Bottom stats - clickable */}
   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
@@ -391,9 +395,9 @@ return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
 </div>};
 
 // ── Report Page ──
-const ReportPage=({onBack,setShowExport})=>{const riskItems=[{rule:"UPD-001",n:"Windows 超過 30 天未更新",dom:"系統更新",risk:"高",aff:120,pct:24,iso:"A.8.8"},{rule:"POL-005",n:"偵測到未授權軟體",dom:"政策合規",risk:"高",aff:45,pct:9,iso:"A.8.19"},{rule:"POL-001",n:"密碼長度不足 8 碼",dom:"政策合規",risk:"高",aff:15,pct:3,iso:"A.5.1"},{rule:"SEC-005",n:"系統磁碟未加密",dom:"安全性狀態",risk:"中",aff:20,pct:4,iso:"A.8.24"},{rule:"HW-002",n:"磁碟使用率超過 85%",dom:"硬體健康",risk:"中",aff:18,pct:3.6},{rule:"POL-004",n:"帳戶無鎖定機制",dom:"政策合規",risk:"中",aff:30,pct:6,iso:"A.8.5"},{rule:"HW-006",n:"裝置超過 5 年",dom:"硬體健康",risk:"低",aff:60,pct:12}];
+const ReportPage=({onBack})=>{const riskItems=[{rule:"UPD-001",n:"Windows 超過 30 天未更新",dom:"系統更新",risk:"高",aff:120,pct:24,iso:"A.8.8"},{rule:"POL-005",n:"偵測到未授權軟體",dom:"政策合規",risk:"高",aff:45,pct:9,iso:"A.8.19"},{rule:"POL-001",n:"密碼長度不足 8 碼",dom:"政策合規",risk:"高",aff:15,pct:3,iso:"A.5.1"},{rule:"SEC-005",n:"系統磁碟未加密",dom:"安全性狀態",risk:"中",aff:20,pct:4,iso:"A.8.24"},{rule:"HW-002",n:"磁碟使用率超過 85%",dom:"硬體健康",risk:"中",aff:18,pct:3.6},{rule:"POL-004",n:"帳戶無鎖定機制",dom:"政策合規",risk:"中",aff:30,pct:6,iso:"A.8.5"},{rule:"HW-006",n:"裝置超過 5 年",dom:"硬體健康",risk:"低",aff:60,pct:12}];
 return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
-  <div style={{display:"flex",justifyContent:"flex-end"}}><Btn outline onClick={()=>setShowExport(true)}>匯出此報告</Btn></div>
+  <div data-no-print="1" style={{display:"flex",justifyContent:"flex-end"}}><Btn outline onClick={doPrintExport}>匯出此報告</Btn></div>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"20px 24px"}}><div style={{fontSize:20,fontWeight:700}}>IT 健檢詳細報告</div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>2026/02/22 23:03 | 500 台 | 8 分 32 秒 | admin@wisecore.com</div></div>
   <div style={{display:"grid",gridTemplateColumns:"180px 1fr",gap:14}}>
     <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:18,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}><Score score={92} size={110} sw={9}/><Badge type="success" text="良好"/><div style={{fontSize:12,color:C.textSec,marginTop:4}}>整體健康評分</div></div>
@@ -410,29 +414,8 @@ return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
   </div>
 </div>};
 
-// ── Export Modal ──
-function generatePdf(scope,opts){
-const{jsPDF}=window.jspdf;const doc=new jsPDF();const scopeNames={full:"完整報告",security:"安全性狀態",compliance:"政策合規",updates:"系統更新",hardware:"硬體健康"};
-let y=20;
-doc.setFontSize(20);doc.setFont(undefined,"bold");doc.text("WiseCore IT Health Check Report",14,y);y+=10;
-doc.setFontSize(10);doc.setFont(undefined,"normal");doc.setTextColor(120);doc.text("2026/02/22 23:03 | 500 devices | "+scopeNames[scope],14,y);y+=12;
-doc.setDrawColor(200);doc.line(14,y,196,y);y+=10;
-doc.setTextColor(0);doc.setFontSize(14);doc.setFont(undefined,"bold");doc.text("Overall Health Score: 92%",14,y);y+=8;
-doc.setFontSize(10);doc.setFont(undefined,"normal");doc.text("Status: Good - System operating normally",14,y);y+=12;
-const cards=[{n:"Security",v:"98%",s:"Safe"},{n:"Compliance",v:"67%",s:"Needs Attention"},{n:"Updates",v:"65%",s:"Missing Critical"},{n:"Hardware",v:"95%",s:"Good"}];
-cards.forEach((c,i)=>{const x=14+i*46;doc.setFillColor(248,250,252);doc.roundedRect(x,y,42,22,2,2,"F");doc.setFontSize(8);doc.setFont(undefined,"bold");doc.text(c.n,x+2,y+6);doc.setFontSize(14);doc.text(c.v,x+2,y+15);doc.setFontSize(7);doc.setFont(undefined,"normal");doc.text(c.s,x+2,y+20)});y+=30;
-if(opts.trend){doc.setFontSize(12);doc.setFont(undefined,"bold");doc.text("Trend (vs Previous)",14,y);y+=8;doc.setFontSize(9);doc.setFont(undefined,"normal");[{l:"Overall",p:"88%",c:"92%",d:"+4%"},{l:"Security",p:"95%",c:"98%",d:"+3%"},{l:"Compliance",p:"62%",c:"67%",d:"+5%"},{l:"Updates",p:"70%",c:"65%",d:"-5%"},{l:"Hardware",p:"93%",c:"95%",d:"+2%"}].forEach(t=>{doc.text(t.l+": "+t.p+" -> "+t.c+" ("+t.d+")",18,y);y+=5});y+=6}
-if(opts.actions){doc.setFontSize(12);doc.setFont(undefined,"bold");doc.text("Recommended Actions",14,y);y+=8;doc.setFontSize(9);doc.setFont(undefined,"normal");doc.setTextColor(200,0,0);doc.text("[Priority]",14,y);doc.setTextColor(0);y+=5;["Deploy Windows Update to 120 devices (KB5034763)","Remove unauthorized software from 45 devices","Set password policy for 15 devices (min 8 chars)"].forEach(a=>{doc.text("  - "+a,14,y);y+=5});y+=3;doc.setTextColor(200,120,0);doc.text("[Improvement]",14,y);doc.setTextColor(0);y+=5;["Enable BitLocker on 20 devices","Set account lockout threshold for 30 devices","Clean disk space on 18 devices (>85%)"].forEach(a=>{doc.text("  - "+a,14,y);y+=5});y+=6}
-doc.setFontSize(8);doc.setTextColor(160);doc.text("Generated by WiseCore IT Health Check | "+new Date().toLocaleString(),14,285);
-doc.save("IT-HealthCheck-Report-"+scope+".pdf")}
-const ExportModal=({onClose})=>{const[scope,setScope]=useState("full");const[exporting,setExporting]=useState(false);const[opts,setOpts]=useState({trend:true,actions:true,devices:true});const toggle=k=>setOpts(p=>({...p,[k]:!p[k]}));
-return <Modal onClose={onClose} width={480}><div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:17,fontWeight:700}}>匯出 PDF 報告</span><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:C.textThi}}>✕</span></div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>2026/02/22 23:03 | 500 台</div></div>
-  <div style={{padding:"20px 24px"}}>
-    <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:600,marginBottom:8}}>報告範圍</div>{[{id:"full",l:"完整報告"},{id:"security",l:"僅安全性狀態"},{id:"compliance",l:"僅政策合規"},{id:"updates",l:"僅系統更新"},{id:"hardware",l:"僅硬體健康"}].map(s=><div key={s.id} onClick={()=>setScope(s.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:6,cursor:"pointer",marginBottom:2,background:scope===s.id?"#FAFAFA":"transparent"}}><div style={{width:16,height:16,borderRadius:99,border:`2px solid ${scope===s.id?C.primary:C.border}`,display:"flex",alignItems:"center",justifyContent:"center"}}>{scope===s.id&&<div style={{width:8,height:8,borderRadius:99,background:C.primary}}/>}</div><span style={{fontSize:13}}>{s.l}</span></div>)}</div>
-    <div style={{background:"#FAFAFA",borderRadius:8,padding:12,border:`1px solid ${C.borderLight}`}}><div style={{fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6}}>PDF 內容選項</div>{[{k:"trend",l:"包含趨勢比較"},{k:"actions",l:"包含建議行動清單"},{k:"devices",l:"包含裝置詳細清單"}].map(o=><label key={o.k} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer",marginBottom:4}}><input type="checkbox" checked={opts[o.k]} onChange={()=>toggle(o.k)} style={{accentColor:C.primary}}/>{o.l}</label>)}</div>
-  </div>
-  <div style={{padding:"14px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{setExporting(true);setTimeout(()=>{generatePdf(scope,opts);setExporting(false);onClose()},600)}} disabled={exporting}>{exporting?"匯出中...":"匯出 PDF"}</Btn></div>
-</Modal>};
+// ── Export (window.print) ──
+function doPrintExport(){window.print()}
 
 // ── History ──
 const histData=[{time:"2026/02/22 23:03",trig:"手動",cnt:500,h:4,m:6,l:12,total:"22",dur:"8:32",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/21 18:15",trig:"排程",cnt:235,h:2,m:5,l:8,total:"15",dur:"4:18",st:"已完成",user:"系統排程"},{time:"2026/02/20 22:45",trig:"手動",cnt:180,h:3,m:4,l:6,total:"13",dur:"3:45",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/19 15:30",trig:"排程",cnt:915,h:8,m:12,l:18,total:"38",dur:"12:56",st:"已完成",user:"admin@wisecore.com"},{time:"2026/02/18 09:20",trig:"手動",cnt:500,h:5,m:7,l:14,total:"26",dur:"9:12",st:"已完成",user:"it@wisecore.com"}];
@@ -446,7 +429,7 @@ return <div style={{padding:24}}>
   <div style={{fontSize:12,color:C.textSec,marginBottom:8}}>共 {filtered.length} 筆</div>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13,tableLayout:"fixed"}}><colgroup><col style={{width:"15%"}}/><col style={{width:"7%"}}/><col style={{width:"8%"}}/><col style={{width:"5%"}}/><col style={{width:"5%"}}/><col style={{width:"5%"}}/><col style={{width:"6%"}}/><col style={{width:"7%"}}/><col style={{width:"8%"}}/><col style={{width:"18%"}}/><col style={{width:"5%"}}/></colgroup><thead><tr>{["時間","方式","裝置數","高","中","低","項目","耗時","狀態","操作人員","動作"].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:12,fontWeight:600,color:C.textSec,borderBottom:`1px solid ${C.border}`,background:"#FAFAFA"}}>{h}</th>)}</tr></thead><tbody>{filtered.map((r,i)=><tr key={i} style={{borderBottom:`1px solid ${C.borderLight}`}}><td style={{padding:"10px 12px",whiteSpace:"nowrap"}}>{r.time}</td><td style={{padding:"10px 12px"}}><Badge type={r.trig==="排程"?"success":"info"} text={r.trig}/></td><td style={{padding:"10px 12px"}}>{r.cnt}</td><td style={{padding:"10px 12px",color:C.red,fontWeight:600}}>{r.h}</td><td style={{padding:"10px 12px",color:C.orange,fontWeight:600}}>{r.m}</td><td style={{padding:"10px 12px",color:C.blue,fontWeight:600}}>{r.l}</td><td style={{padding:"10px 12px"}}>{r.total}</td><td style={{padding:"10px 12px"}}>{r.dur}</td><td style={{padding:"10px 12px"}}><Badge type="success" text={r.st}/></td><td style={{padding:"10px 12px",fontSize:12,color:C.textSec}}>{r.user}</td><td style={{padding:"10px 12px"}}><KebabMenu items={[{label:"查看報告",onClick:()=>setViewReport(r)},{label:"匯出 PDF",onClick:()=>setExportPdf(r)}]}/></td></tr>)}</tbody></table></div>
   {viewReport&&<Modal onClose={()=>setViewReport(null)} width={640}><div style={{padding:"24px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontSize:18,fontWeight:700}}>健檢報告摘要</div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>{viewReport.time} | {viewReport.cnt} 台 | 耗時 {viewReport.dur}</div></div><span onClick={()=>setViewReport(null)} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div><div style={{marginTop:20,display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>{[{l:"高風險",v:viewReport.h,c:C.red},{l:"中風險",v:viewReport.m,c:C.orange},{l:"低風險",v:viewReport.l,c:C.blue},{l:"總項目",v:viewReport.total,c:C.text}].map(x=><div key={x.l} style={{background:"#FAFAFA",borderRadius:8,padding:14,textAlign:"center"}}><div style={{fontSize:24,fontWeight:700,color:x.c}}>{x.v}</div><div style={{fontSize:11,color:C.textSec,marginTop:4}}>{x.l}</div></div>)}</div><div style={{marginTop:16,padding:14,background:"#FAFAFA",borderRadius:8}}><div style={{fontSize:12,color:C.textSec}}>操作方式：<b>{viewReport.trig}</b></div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>操作人員：<b>{viewReport.user}</b></div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>狀態：<Badge type="success" text={viewReport.st}/></div></div><div style={{marginTop:20,display:"flex",justifyContent:"flex-end"}}><Btn outline onClick={()=>setViewReport(null)}>關閉</Btn></div></div></Modal>}
-  {exportPdf&&<Modal onClose={()=>setExportPdf(null)} width={440}><div style={{padding:"24px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontSize:18,fontWeight:700}}>匯出 PDF 報告</div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>{exportPdf.time} | {exportPdf.cnt} 台</div></div><span onClick={()=>setExportPdf(null)} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div><div style={{marginTop:20}}>{["包含趨勢比較","包含建議行動清單","包含裝置詳細清單"].map((o,i)=><label key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:8}}><input type="checkbox" defaultChecked style={{accentColor:C.primary}}/>{o}</label>)}</div><div style={{marginTop:20,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={()=>setExportPdf(null)}>取消</Btn><Btn primary onClick={()=>{generatePdf("full",{trend:true,actions:true,devices:true});setExportPdf(null)}}>匯出 PDF</Btn></div></div></Modal>}
+  {exportPdf&&<Modal onClose={()=>setExportPdf(null)} width={440}><div style={{padding:"24px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontSize:18,fontWeight:700}}>匯出 PDF 報告</div><div style={{fontSize:12,color:C.textSec,marginTop:4}}>{exportPdf.time} | {exportPdf.cnt} 台</div></div><span onClick={()=>setExportPdf(null)} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div><div style={{marginTop:16,padding:14,background:"#FAFAFA",borderRadius:8,fontSize:13,color:C.textSec}}>將透過瀏覽器列印功能匯出 PDF，報告內容與頁面呈現一致。</div><div style={{marginTop:20,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={()=>setExportPdf(null)}>取消</Btn><Btn primary onClick={()=>{setExportPdf(null);setTimeout(doPrintExport,200)}}>匯出 PDF</Btn></div></div></Modal>}
 </div>};
 
 // ── Rules ──
@@ -548,24 +531,24 @@ return <div style={{padding:24,maxWidth:760}}>
 </div>};
 
 // ── App ──
-function App(){const[tab,setTab]=useState("overview");const[dimDetail,setDimDetail]=useState(null);const[exp,setExp]=useState(null);const[view,setView]=useState(null);const[showExport,setShowExport]=useState(false);
+function App(){const[tab,setTab]=useState("overview");const[dimDetail,setDimDetail]=useState(null);const[exp,setExp]=useState(null);const[view,setView]=useState(null);
 return <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
-  <Sidebar exp={exp} setExp={setExp}/>
+  <div data-sidebar="1"><Sidebar exp={exp} setExp={setExp}/></div>
   <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
-    <TopBar/>
-    {(dimDetail||view)&&<div style={{padding:"12px 24px 0",display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.textThi}}><span onClick={()=>{setDimDetail(null);setView(null)}} style={{color:C.textSec,cursor:"pointer"}}>IT 健檢</span><span>›</span><span onClick={()=>{setDimDetail(null);setView(null)}} style={{color:C.textSec,cursor:"pointer"}}>健檢總覽</span><span>›</span>{dimDetail&&<span style={{color:C.text,fontWeight:600}}>{dims.find(x=>x.id===dimDetail)?.name}</span>}{view==="report"&&<span style={{color:C.text,fontWeight:600}}>詳細報告</span>}</div>}
+    <div data-topbar="1"><TopBar/></div>
+    {(dimDetail||view)&&<div data-breadcrumb="1" style={{padding:"12px 24px 0",display:"flex",alignItems:"center",gap:6,fontSize:13,color:C.textThi}}><span onClick={()=>{setDimDetail(null);setView(null)}} style={{color:C.textSec,cursor:"pointer"}}>IT 健檢</span><span>›</span><span onClick={()=>{setDimDetail(null);setView(null)}} style={{color:C.textSec,cursor:"pointer"}}>健檢總覽</span><span>›</span>{dimDetail&&<span style={{color:C.text,fontWeight:600}}>{dims.find(x=>x.id===dimDetail)?.name}</span>}{view==="report"&&<span style={{color:C.text,fontWeight:600}}>詳細報告</span>}</div>}
     <PageHeader/>
     {!dimDetail&&!view&&<TabBar tab={tab} setTab={t=>{setTab(t);setDimDetail(null);setView(null)}}/>}
     <div style={{flex:1,overflowY:"auto"}}>
-      {view==="report"?<ReportPage onBack={()=>setView(null)} setShowExport={setShowExport}/>
-      :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView} setShowExport={setShowExport}/>
+      {view==="report"?<ReportPage onBack={()=>setView(null)}/>
+      :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView}/>
       :tab==="overview"&&dimDetail?<DimDetailPage dimId={dimDetail} onBack={()=>setDimDetail(null)}/>
       :tab==="history"?<HistoryPage/>
       :tab==="rules"?<RulesPage/>
       :tab==="notify"?<NotifyPage/>:null}
     </div>
   </div>
-  {showExport&&<ExportModal onClose={()=>setShowExport(false)}/>}
+
 </div>}
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
