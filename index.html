@@ -518,7 +518,7 @@ return <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
   <Sidebar exp={exp} setExp={setExp}/>
   <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
     <TopBar/><PageHeader/>
-    <TabBar tab={tab} setTab={t=>{setTab(t);setDimDetail(null);setView(null)}}/>
+    {!dimDetail&&!view&&<TabBar tab={tab} setTab={t=>{setTab(t);setDimDetail(null);setView(null)}}/>}
     <div style={{flex:1,overflowY:"auto"}}>
       {view==="report"?<ReportPage onBack={()=>setView(null)} setShowExport={setShowExport}/>
       :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView} setShowExport={setShowExport}/>
