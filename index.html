@@ -204,23 +204,38 @@ const StatCardRow=()=><div style={{display:"grid",gridTemplateColumns:"repeat(4,
 </div>;
 
 // ── Device Selection Modal ──
-const allDeviceGroups=[{name:"全部裝置",count:500},{name:"IT 部門",count:45},{name:"HR 部門",count:32},{name:"財務部門",count:28},{name:"業務部門",count:65},{name:"行銷部門",count:40},{name:"研發部門",count:120},{name:"法務部門",count:15},{name:"營運部門",count:55},{name:"客服部門",count:38},{name:"品管部門",count:22},{name:"專案管理",count:18},{name:"工程部門",count:22}];
-const DeviceSelectModal=({onClose,onConfirm,initCount})=>{const[mode,setMode]=useState("all");const[selected,setSelected]=useState(new Set(["全部裝置"]));const total=mode==="all"?500:Array.from(selected).reduce((s,g)=>{const f=allDeviceGroups.find(x=>x.name===g);return s+(f?f.count:0)},0);
-const toggleGroup=(name)=>{const n=new Set(selected);if(n.has(name))n.delete(name);else n.add(name);setSelected(n)};
-return <Modal onClose={onClose} width={560}>
-<div style={{padding:"20px 24px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:17,fontWeight:700}}>選擇檢測對象</span><span onClick={onClose} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div></div>
-<div style={{padding:"20px 24px",overflowY:"auto",flex:1}}>
-  <div style={{display:"flex",gap:8,marginBottom:16}}>{[{id:"all",l:"全部裝置"},{id:"group",l:"依群組選擇"}].map(m=><div key={m.id} onClick={()=>{setMode(m.id);setSelected(new Set(m.id==="all"?["全部裝置"]:[]))}} style={{flex:1,padding:"10px 14px",borderRadius:8,border:`2px solid ${mode===m.id?C.primary:C.border}`,background:mode===m.id?C.primaryLight:C.white,cursor:"pointer",textAlign:"center",fontSize:13,fontWeight:600,color:mode===m.id?C.primary:C.textSec}}>{m.l}</div>)}</div>
-  {mode==="all"?<div style={{padding:20,textAlign:"center",color:C.textSec,fontSize:13}}>將掃描所有已註冊的 <b style={{color:C.text}}>500</b> 台裝置</div>
-  :<div style={{display:"flex",flexDirection:"column",gap:4}}>{allDeviceGroups.filter(g=>g.name!=="全部裝置").map(g=><div key={g.name} onClick={()=>toggleGroup(g.name)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:8,border:`1px solid ${selected.has(g.name)?C.primary:C.borderLight}`,background:selected.has(g.name)?C.primaryLight:C.white,cursor:"pointer"}}>
-    <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${selected.has(g.name)?C.primary:C.border}`,background:selected.has(g.name)?C.primary:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>{selected.has(g.name)&&<svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}</div>
-    <span style={{flex:1,fontSize:13,fontWeight:selected.has(g.name)?600:400}}>{g.name}</span>
-    <span style={{fontSize:12,color:C.textThi}}>{g.count} 台</span>
-  </div>)}</div>}
-  <div style={{marginTop:16,padding:"12px 16px",background:"#FAFAFA",borderRadius:8,border:`1px solid ${C.borderLight}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:C.textSec}}>已選擇裝置</span><span style={{fontSize:20,fontWeight:700,color:C.primary}}>{total} 台</span></div>
-</div>
-<div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{onConfirm(total);onClose()}}>確認選擇</Btn></div>
-</Modal>};
+const allSelectDevices=Array.from({length:500},(_,i)=>({name:genName(i),account:genAccount(i),user:genUser(i),dept:genDept(i),ip:genIP(i)}));
+const DeviceSelectModal=({onClose,onConfirm,initCount})=>{const[s,setS]=useState("");const[deptF,setDeptF]=useState("全部");const[page,setPage]=useState(1);const[checkedAll,setCheckedAll]=useState(true);const[unchecked,setUnchecked]=useState(new Set());const perPage=50;
+const depts=useMemo(()=>["全部",...new Set(allSelectDevices.map(d=>d.dept))],[]);
+const filtered=useMemo(()=>{let d=allSelectDevices;if(deptF!=="全部")d=d.filter(x=>x.dept===deptF);if(s){const q=s.toLowerCase();d=d.filter(x=>x.name.toLowerCase().includes(q)||x.account.toLowerCase().includes(q)||x.user.includes(q)||x.dept.includes(q))}return d},[s,deptF]);
+const paged=filtered.slice((page-1)*perPage,page*perPage);const totalPages=Math.ceil(filtered.length/perPage);
+const toggleOne=name=>{const n=new Set(unchecked);if(n.has(name))n.delete(name);else n.add(name);setUnchecked(n)};
+const toggleAll=()=>{if(checkedAll){setUnchecked(new Set(allSelectDevices.map(d=>d.name)));setCheckedAll(false)}else{setUnchecked(new Set());setCheckedAll(true)}};
+const selectedCount=allSelectDevices.length-unchecked.size;
+const Chk=({on,onClick})=><div onClick={e=>{e.stopPropagation();onClick()}} style={{width:18,height:18,borderRadius:4,border:`2px solid ${on?C.primary:C.border}`,background:on?C.primary:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>{on&&<svg width={12} height={12} viewBox="0 0 24 24" fill="#fff"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}</div>;
+return ReactDOM.createPortal(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:C.white,borderRadius:12,width:720,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",animation:"fadeIn 0.2s ease"}}>
+  <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}><div><span style={{fontSize:17,fontWeight:700}}>選擇檢測對象</span><div style={{fontSize:12,color:C.textSec,marginTop:2}}>已選擇 <b style={{color:C.primary}}>{selectedCount}</b> 台裝置</div></div><span onClick={onClose} style={{cursor:"pointer",fontSize:20,color:C.textThi}}>✕</span></div>
+  <div style={{padding:"12px 24px",display:"flex",gap:8,alignItems:"center",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0}}>
+    <div style={{flex:1,position:"relative"}}><svg width={15} height={15} viewBox="0 0 24 24" fill={C.textThi} style={{position:"absolute",left:10,top:9}}><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input value={s} onChange={e=>{setS(e.target.value);setPage(1)}} placeholder="搜尋裝置名稱、帳號、使用者..." style={{width:"100%",padding:"8px 12px 8px 32px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13}}/></div>
+    <select value={deptF} onChange={e=>{setDeptF(e.target.value);setPage(1)}} style={{padding:"8px 12px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,background:C.white}}>{depts.map(d=><option key={d}>{d}</option>)}</select>
+    <div onClick={toggleAll} style={{padding:"8px 14px",borderRadius:6,fontSize:12,cursor:"pointer",background:checkedAll?C.primaryLight:C.white,color:C.primary,border:`1px solid ${C.primary}`,fontWeight:600,whiteSpace:"nowrap"}}>{checkedAll?"取消全選":"全選"}</div>
+  </div>
+  <div style={{flex:1,overflowY:"auto"}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr>{["","裝置名稱","使用者帳號","員工名稱","所屬部門","IP 位址"].map(h=><th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:12,fontWeight:600,color:C.textSec,borderBottom:`1px solid ${C.border}`,background:"#FAFAFA",position:"sticky",top:0,zIndex:1}}>{h}</th>)}</tr></thead>
+    <tbody>{paged.map(d=>{const on=!unchecked.has(d.name);return <tr key={d.name} onClick={()=>toggleOne(d.name)} style={{cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`,background:on?"#F0F9FF":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background=on?"#E0F2FE":"#FAFAFA"} onMouseLeave={e=>e.currentTarget.style.background=on?"#F0F9FF":"transparent"}>
+      <td style={{padding:"8px 12px",width:40}}><Chk on={on} onClick={()=>toggleOne(d.name)}/></td>
+      <td style={{padding:"8px 12px",fontWeight:500,color:C.primary}}>{d.name}</td>
+      <td style={{padding:"8px 12px",color:C.textSec}}>{d.account}</td>
+      <td style={{padding:"8px 12px"}}>{d.user}</td>
+      <td style={{padding:"8px 12px"}}>{d.dept}</td>
+      <td style={{padding:"8px 12px",color:C.textThi,fontFamily:"monospace",fontSize:12}}>{d.ip}</td>
+    </tr>})}</tbody></table>
+  </div>
+  <div style={{padding:"12px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+    <div style={{fontSize:12,color:C.textSec}}>顯示 {filtered.length} 筆，已選 <b style={{color:C.primary}}>{selectedCount}</b> 台{totalPages>1&&<span style={{marginLeft:12}}>{page} / {totalPages} 頁 <span onClick={()=>setPage(p=>Math.max(1,p-1))} style={{cursor:"pointer",padding:"2px 6px",marginLeft:4}}>‹</span><span onClick={()=>setPage(p=>Math.min(totalPages,p+1))} style={{cursor:"pointer",padding:"2px 6px"}}>›</span></span>}</div>
+    <div style={{display:"flex",gap:8}}><Btn onClick={onClose}>取消</Btn><Btn primary onClick={()=>{onConfirm(selectedCount);onClose()}}>確認選擇 ({selectedCount})</Btn></div>
+  </div>
+</div></div>,document.body)};
 
 // ── Schedule Edit Modal ──
 const ScheduleEditModal=({onClose})=>{const[enabled,setEnabled]=useState(true);const[freq,setFreq]=useState("weekly");const[time,setTime]=useState("02:00");const[weekday,setWeekday]=useState(1);const[monthDay,setMonthDay]=useState(1);const[scope,setScope]=useState("all");const[selGroups,setSelGroups]=useState(new Set());const[notifyDone,setNotifyDone]=useState(true);
