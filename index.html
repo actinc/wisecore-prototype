@@ -399,9 +399,48 @@ const hwSubTabs=[{id:"storage",l:"儲存健康"},{id:"resource",l:"資源使用"
 return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
   <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:13,color:C.textSec,marginTop:2}}>{d.id==="compliance"?"依據國際資安標準檢視合規狀態，提供稽核與管理報告":d.id==="security"?"即時檢視安全防護狀態、偵測結果與處理進度":`檢視${d.name}的詳細結果與影響裝置`}</div></div>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-    <ClickableStat label={d.id==="compliance"?"合規裝置數":"正常裝置數"} count={okN} sub1={`佔總數 ${rate}%`} sub2="目標: 85%" variant="green" devices={devs} modalTitle={`${d.name} — 正常裝置 (${okN} 台)`}/>
-    <ClickableStat label="異常裝置數" count={badN} sub1={`佔總數 ${100-rate}%`} sub2={`高風險: ${highN} 台`} variant="red" devices={devs} modalTitle={`${d.name} — 異常裝置 (${devs.length} 台)`}/>
+    <ClickableStat label={d.id==="compliance"?"合規裝置數":"正常裝置數"} count={okN} sub1={`佔總數 ${rate}%`} sub2={d.id==="compliance"?"所有合規項目皆通過":"所有安全規則皆通過"} variant="green" devices={devs} modalTitle={`${d.name} — ${d.id==="compliance"?"合規":"正常"}裝置 (${okN} 台)`}/>
+    <ClickableStat label={d.id==="compliance"?"不合規裝置數":"異常裝置數"} count={badN} sub1={`佔總數 ${100-rate}%`} sub2={`高風險: ${highN} 台`} variant="red" devices={devs} modalTitle={`${d.name} — ${d.id==="compliance"?"不合規":"異常"}裝置 (${devs.length} 台)`}/>
   </div>
+  {d.id==="security"&&<div style={{background:"#F8FAFB",borderRadius:8,border:`1px solid ${C.borderLight}`,padding:"14px 18px",fontSize:12,color:C.textSec,lineHeight:1.8}}>
+    <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:13}}>風險判定說明</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <div><RiskBadge level="高"/><span style={{marginLeft:6}}>防毒未安裝、即時防護關閉、防火牆未全啟用</span></div>
+      <div><RiskBadge level="中"/><span style={{marginLeft:6}}>BitLocker 未加密、RDP 無 NLA、病毒碼逾 7 天、逾 14 天未掃描</span></div>
+      <div><RiskBadge level="低"/><span style={{marginLeft:6}}>本機管理員帳號過多、USB 儲存未限制</span></div>
+      <div><Badge type="gray" text="無"/><span style={{marginLeft:6}}>所有安全規則皆通過</span></div>
+    </div>
+    <div style={{marginTop:8,color:C.textThi,fontSize:11}}>* 正常裝置 = 所有規則皆通過（風險為「無」）。異常裝置 = 有任一規則未通過，風險等級取觸發規則中最高者。</div>
+    <div style={{color:C.textThi,fontSize:11}}>* 首次偵測 = 該裝置「現存異常項目」中最早的觸發時間。已解決的異常不計入，若全部解決後又有新異常，則顯示新異常的偵測時間。</div>
+  </div>}
+  {d.id==="compliance"&&<div style={{background:"#F8FAFB",borderRadius:8,border:`1px solid ${C.borderLight}`,padding:"14px 18px",fontSize:12,color:C.textSec,lineHeight:1.8}}>
+    <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:13}}>判定說明</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <div><RiskBadge level="高"/><span style={{marginLeft:6}}>密碼長度不足、未授權軟體、帳戶無鎖定</span></div>
+      <div><RiskBadge level="中"/><span style={{marginLeft:6}}>密碼複雜度未啟用、軟體版本過舊、缺少必要軟體</span></div>
+      <div><RiskBadge level="低"/><span style={{marginLeft:6}}>稽核日誌未啟用、NTP 未同步</span></div>
+      <div><Badge type="gray" text="無"/><span style={{marginLeft:6}}>所有合規項目皆通過</span></div>
+    </div>
+    <div style={{marginTop:8,color:C.textThi,fontSize:11}}>* 合規裝置 = 所有合規項目皆通過。不合規裝置 = 有任一項目未通過。</div>
+  </div>}
+  {d.id==="updates"&&<div style={{background:"#F8FAFB",borderRadius:8,border:`1px solid ${C.borderLight}`,padding:"14px 18px",fontSize:12,color:C.textSec,lineHeight:1.8}}>
+    <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:13}}>風險判定說明</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <div><RiskBadge level="高"/><span style={{marginLeft:6}}>超過 30 天未更新、有待裝重大更新</span></div>
+      <div><RiskBadge level="中"/><span style={{marginLeft:6}}>自動更新未啟用、OS 已終止支援</span></div>
+      <div><RiskBadge level="低"/><span style={{marginLeft:6}}>BIOS 超過 180 天未更新</span></div>
+      <div><Badge type="gray" text="無"/><span style={{marginLeft:6}}>更新狀態正常</span></div>
+    </div>
+  </div>}
+  {d.id==="hardware"&&<div style={{background:"#F8FAFB",borderRadius:8,border:`1px solid ${C.borderLight}`,padding:"14px 18px",fontSize:12,color:C.textSec,lineHeight:1.8}}>
+    <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:13}}>風險判定說明</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <div><RiskBadge level="高"/><span style={{marginLeft:6}}>磁碟用量 > 90%、SMART 預測故障、藍屏頻繁</span></div>
+      <div><RiskBadge level="中"/><span style={{marginLeft:6}}>磁碟用量 > 85%、記憶體長期超標、電池健康度低</span></div>
+      <div><RiskBadge level="低"/><span style={{marginLeft:6}}>裝置超過 5 年、長時間未重開機</span></div>
+      <div><Badge type="gray" text="無"/><span style={{marginLeft:6}}>硬體狀態正常</span></div>
+    </div>
+  </div>}
   {showTabs&&<div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>{(d.id==="compliance"?[{id:"device",l:"裝置視角"},{id:"control",l:"ISO 27001"},{id:"cis",l:"CIS Benchmark"},{id:"nist",l:"NIST 800-53"}]:[{id:"device",l:"裝置視角"},{id:"control",l:"規則視角"}]).map(t=><div key={t.id} onClick={()=>setVt(t.id)} style={{padding:"8px 20px",fontSize:13,cursor:"pointer",fontWeight:vt===t.id?600:400,color:vt===t.id?C.primary:C.textSec,borderBottom:vt===t.id?`2px solid ${C.primary}`:"2px solid transparent"}}>{t.l}</div>)}</div>}
   {d.id==="hardware"&&<div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>{hwSubTabs.map(t=><div key={t.id} onClick={()=>setHwTab(t.id)} style={{padding:"8px 20px",fontSize:13,cursor:"pointer",fontWeight:hwTab===t.id?600:400,color:hwTab===t.id?C.primary:C.textSec,borderBottom:hwTab===t.id?`2px solid ${C.primary}`:"2px solid transparent"}}>{t.l}</div>)}</div>}
   {d.id==="compliance"&&vt==="control"&&<div style={{background:"#F8FAFB",borderRadius:8,border:`1px solid ${C.borderLight}`,padding:"12px 16px",marginBottom:12,fontSize:12,color:C.textSec,lineHeight:1.7}}><b style={{color:C.text}}>ISO 27001</b> 是國際資訊安全管理標準，提供組織建立與維護資訊安全管理系統（ISMS）的框架。以下列出與端點安全相關的控制項，檢測各裝置是否符合對應的安全要求。</div>}
