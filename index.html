@@ -344,7 +344,7 @@ return <><div style={{background:C.white,borderRadius:8,border:`1px solid ${C.re
 </div>{showIdx!==null&&<DeviceListModal title={scaledItems[showIdx].action+" — 受影響裝置 ("+scaledItems[showIdx].affected+" 台)"} devices={devs} onClose={()=>setShowIdx(null)}/>}</>};
 
 // ── Overview ──
-const OverviewPage=({setDimDetail,setView,setScanCount})=>{const[scanning,setScanning]=useState(false);const[scanned,setScanned]=useState(false);const[selectedDevices,setSelectedDevices]=useState(new Set());const deviceCount=selectedDevices.size;const[showDeviceSelect,setShowDeviceSelect]=useState(false);const[showSchedule,setShowSchedule]=useState(false);const[showScoreTip,setShowScoreTip]=useState(false);return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+const OverviewPage=({setDimDetail,setView,setScanCount,scanning,setScanning,scanned,setScanned,selectedDevices,setSelectedDevices})=>{const deviceCount=selectedDevices.size;const[showDeviceSelect,setShowDeviceSelect]=useState(false);const[showSchedule,setShowSchedule]=useState(false);const[showScoreTip,setShowScoreTip]=useState(false);return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontWeight:600,fontSize:14}}>選擇檢測對象</span><div onClick={()=>setShowDeviceSelect(true)} style={{padding:"5px 14px",background:C.primaryLight,borderRadius:6,fontSize:13,color:C.primary,fontWeight:500,cursor:"pointer"}}>選擇裝置 <span style={{background:C.primary,color:"#fff",borderRadius:4,padding:"1px 8px",fontSize:11,fontWeight:700}}>{deviceCount}</span></div>{deviceCount>0?<span style={{color:C.green,fontSize:12}}>已選擇 {deviceCount} 台裝置</span>:<span style={{color:C.orange,fontSize:12}}>請選擇裝置</span>}</div><Btn primary onClick={()=>{if(deviceCount===0){setShowDeviceSelect(true);return}setScanning(true);setTimeout(()=>{setScanning(false);setScanned(true);setScanCount(deviceCount)},2500)}} disabled={scanning}>{scanning?"掃描中...":"開始電腦健檢"}</Btn></div>
   <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"11px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:12,fontSize:13}}><span style={{fontWeight:600}}>排程設定</span><Badge type="success" text="已啟用"/><span style={{color:C.textSec}}>每週一 02:00 | 全部裝置 | 下次：2026/02/24</span></div><Btn small outline onClick={()=>setShowSchedule(true)}>編輯</Btn></div>
   {!scanned&&!scanning&&<div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"60px 28px",textAlign:"center"}}><svg width={48} height={48} viewBox="0 0 24 24" fill={C.textThi} style={{opacity:0.3,marginBottom:12}}><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><div style={{fontSize:16,fontWeight:600,color:C.textSec}}>尚未執行健檢</div><div style={{fontSize:13,color:C.textThi,marginTop:6}}>請先選擇裝置，再點擊「開始電腦健檢」</div></div>}
@@ -639,7 +639,7 @@ return <div style={{padding:24,maxWidth:760}}>
 </div>};
 
 // ── App ──
-function App(){const[tab,setTab]=useState("overview");const[dimDetail,setDimDetail]=useState(null);const[exp,setExp]=useState(null);const[view,setView]=useState(null);const[scanCount,setScanCount]=useState(500);
+function App(){const[tab,setTab]=useState("overview");const[dimDetail,setDimDetail]=useState(null);const[exp,setExp]=useState(null);const[view,setView]=useState(null);const[scanCount,setScanCount]=useState(500);const[scanning,setScanning]=useState(false);const[scanned,setScanned]=useState(false);const[selectedDevices,setSelectedDevices]=useState(new Set());
 return <ScanCtx.Provider value={scanCount}><div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
   <div data-sidebar="1"><Sidebar exp={exp} setExp={setExp}/></div>
   <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
@@ -649,7 +649,7 @@ return <ScanCtx.Provider value={scanCount}><div style={{display:"flex",minHeight
     {!dimDetail&&!view&&<TabBar tab={tab} setTab={t=>{setTab(t);setDimDetail(null);setView(null)}}/>}
     <div style={{flex:1,overflowY:"auto"}}>
       {view==="report"?<ReportPage onBack={()=>setView(null)}/>
-      :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView} setScanCount={setScanCount}/>
+      :tab==="overview"&&!dimDetail?<OverviewPage setDimDetail={setDimDetail} setView={setView} setScanCount={setScanCount} scanning={scanning} setScanning={setScanning} scanned={scanned} setScanned={setScanned} selectedDevices={selectedDevices} setSelectedDevices={setSelectedDevices}/>
       :tab==="overview"&&dimDetail?<DimDetailPage dimId={dimDetail} onBack={()=>setDimDetail(null)}/>
       :tab==="history"?<HistoryPage/>
       :tab==="rules"?<RulesPage/>
