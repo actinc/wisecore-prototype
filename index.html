@@ -413,21 +413,21 @@ return <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
       {secDevices.slice(0,N).map((r,i)=><TR key={i}><TD link>{r.name}</TD><TD style={{fontFamily:"monospace",fontSize:12,color:C.textSec}}>{r.ip}</TD><TD style={{fontFamily:"monospace",fontSize:12,color:C.textSec}}>{r.account}</TD><TD style={{color:C.textSec}}>{r.user}</TD><TD style={{color:C.textSec,fontSize:12}}>{r.dept}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.login}</TD><TD style={{fontSize:12,color:r.detected==="—"?C.textThi:C.textSec}}>{r.detected}</TD><TD>{r.av}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.avVer}</TD><TD>{r.avOk?<Badge type="success" text="正常"/>:<Badge type="danger" text="異常"/>}</TD><TD>{r.fw?<Badge type="success" text="啟用"/>:<Badge type="danger" text="未啟用"/>}</TD><TD>{r.bl?<Badge type="success" text="已加密"/>:<Badge type="warn" text="未加密"/>}</TD><TD style={{fontSize:12,color:C.textSec}}>{r.scan}</TD><TD>{r.risk==="無"?<Badge type="gray" text="無"/>:<RiskBadge level={r.risk}/>}</TD></TR>)}
     </tbody></table>}
     {/* Security - rule view */}
-    {d.id==="security"&&vt==="control"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>規則名稱</TH><TH>觸發裝置</TH><TH>影響裝置</TH><TH>風險</TH><TH>類別</TH><TH>最近偵測</TH><TH>處理狀態</TH></tr></thead><tbody>
+    {d.id==="security"&&vt==="control"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>規則名稱</TH><TH>觸發裝置</TH><TH>影響裝置</TH><TH>風險</TH><TH>類別</TH><TH>最近偵測</TH></tr></thead><tbody>
       {[
-        {n:"防毒軟體未安裝",a:1,r:"高",cat:"端點防護",time:"2026/02/22 09:03",status:"處理中",dev:"LAPTOP-MK01"},
-        {n:"防火牆未全部啟用",a:1,r:"高",cat:"網路防護",time:"2026/02/22 08:45",status:"處理中",dev:"DESKTOP-HR03"},
-        {n:"系統磁碟未加密 (BitLocker)",a:2,r:"中",cat:"資料保護",time:"2026/02/21 17:30",status:"待處理",dev:"LAPTOP-MK01, PC-SALES-12"},
-        {n:"遠端桌面無 NLA",a:1,r:"中",cat:"存取控制",time:"2026/02/22 09:03",status:"待處理",dev:"LAPTOP-MK01"},
-        {n:"防毒即時防護未啟用",a:0,r:"高",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
-        {n:"病毒定義超過 7 天未更新",a:0,r:"中",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
-        {n:"螢幕鎖定未啟用或逾時過長",a:0,r:"中",cat:"存取控制",time:"—",status:"無異常",dev:"—"},
-        {n:"本機管理員帳號過多",a:0,r:"低",cat:"帳號管理",time:"—",status:"無異常",dev:"—"},
-        {n:"Guest 帳號未停用",a:0,r:"中",cat:"帳號管理",time:"—",status:"無異常",dev:"—"},
-        {n:"USB 儲存未限制",a:0,r:"低",cat:"資料保護",time:"—",status:"無異常",dev:"—"},
-        {n:"自動登入已開啟",a:0,r:"中",cat:"存取控制",time:"—",status:"無異常",dev:"—"},
-        {n:"防毒超過 14 天未完整掃描",a:0,r:"中",cat:"端點防護",time:"—",status:"無異常",dev:"—"},
-      ].map(function(c,i){const stColor=c.status==="處理中"?C.orange:c.status==="待處理"?C.red:C.textThi;return <TR key={i}><TD style={{fontWeight:500}}>{c.n}</TD><TD>{c.a > 0 ? c.a+" 台" : <span style={{color:C.textThi}}>0</span>}</TD><TD style={{color:c.dev==="—"?C.textThi:C.textSec,fontSize:12}}>{c.dev}</TD><TD><RiskBadge level={c.r}/></TD><TD style={{fontSize:12,color:C.textSec}}>{c.cat}</TD><TD style={{fontSize:12,color:c.time==="—"?C.textThi:C.textSec}}>{c.time}</TD><TD style={{fontSize:12,fontWeight:600,color:stColor}}>{c.status}</TD></TR>})}
+        {n:"防毒軟體未安裝",a:1,r:"高",cat:"端點防護",time:"2026/02/22 09:03",dev:"LAPTOP-MK01"},
+        {n:"防火牆未全部啟用",a:1,r:"高",cat:"網路防護",time:"2026/02/22 08:45",dev:"DESKTOP-HR03"},
+        {n:"系統磁碟未加密 (BitLocker)",a:2,r:"中",cat:"資料保護",time:"2026/02/21 17:30",dev:"LAPTOP-MK01, PC-SALES-12"},
+        {n:"遠端桌面無 NLA",a:1,r:"中",cat:"存取控制",time:"2026/02/22 09:03",dev:"LAPTOP-MK01"},
+        {n:"防毒即時防護未啟用",a:0,r:"高",cat:"端點防護",time:"—",dev:"—"},
+        {n:"病毒定義超過 7 天未更新",a:0,r:"中",cat:"端點防護",time:"—",dev:"—"},
+        {n:"螢幕鎖定未啟用或逾時過長",a:0,r:"中",cat:"存取控制",time:"—",dev:"—"},
+        {n:"本機管理員帳號過多",a:0,r:"低",cat:"帳號管理",time:"—",dev:"—"},
+        {n:"Guest 帳號未停用",a:0,r:"中",cat:"帳號管理",time:"—",dev:"—"},
+        {n:"USB 儲存未限制",a:0,r:"低",cat:"資料保護",time:"—",dev:"—"},
+        {n:"自動登入已開啟",a:0,r:"中",cat:"存取控制",time:"—",dev:"—"},
+        {n:"防毒超過 14 天未完整掃描",a:0,r:"中",cat:"端點防護",time:"—",dev:"—"},
+      ].map(function(c,i){return <TR key={i}><TD style={{fontWeight:500}}>{c.n}</TD><TD>{c.a > 0 ? c.a+" 台" : <span style={{color:C.textThi}}>0</span>}</TD><TD style={{color:c.dev==="—"?C.textThi:C.textSec,fontSize:12}}>{c.dev}</TD><TD><RiskBadge level={c.r}/></TD><TD style={{fontSize:12,color:C.textSec}}>{c.cat}</TD><TD style={{fontSize:12,color:c.time==="—"?C.textThi:C.textSec}}>{c.time}</TD></TR>})}
     </tbody></table>}
     {/* Compliance - device view */}
     {d.id==="compliance"&&vt==="device"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr><TH>裝置名稱</TH><TH>IP</TH><TH>帳號</TH><TH>使用者</TH><TH>部門</TH><TH>最後登入</TH><TH>首次偵測</TH><TH>不合規數</TH><TH>最高風險</TH><TH>不合規項目</TH></tr></thead><tbody>
